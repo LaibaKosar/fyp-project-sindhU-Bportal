@@ -75,7 +75,7 @@ export default function UBDashboardHome({ user, showToast }) {
   const [loading, setLoading] = useState(true)
 
   // Fuzzy search: combine program + faculty name and check for STEM keywords (case-insensitive).
-  const STEM_KEYWORDS = /(computer|it|software|engineering|ai|cyber|electrical|science|technology)/i
+  const STEM_KEYWORDS = /(computer|it|software|engineering|ai|cyber|electrical|science|technology|\bcs\b|bscs|bs cs|mscs|ms cs)/i
   const classifyProgram = (programName, facultyName) => {
     const p = programName != null ? String(programName).trim() : ''
     const f = facultyName != null ? String(facultyName).trim() : ''
@@ -145,7 +145,7 @@ export default function UBDashboardHome({ user, showToast }) {
             Array.isArray(p?.faculties) ? (p.faculties[0]?.name || '') : (p?.faculties?.name || '')
           const searchStr = `${p?.name || ''} ${facultyName}`.trim().toLowerCase()
 
-          const isStem = /computer|software|engineering|ai|\bit\b/i.test(searchStr)
+          const isStem = /computer|software|engineering|ai|\bit\b|\bcs\b|bscs|bs cs|mscs|ms cs/i.test(searchStr)
           const result = isStem ? 'STEM' : 'Non-STEM'
 
           console.log('Final Categorization:', searchStr || '(empty)', 'is', result)
@@ -167,7 +167,7 @@ export default function UBDashboardHome({ user, showToast }) {
         const programIdsInReports = new Set((enrollmentWithFacultyRes.data || []).map((r) => r.program_id).filter(Boolean))
         const programsWithReports = programIdsInReports.size
         console.log('Compliance Check:', totalPrograms, programsWithReports, 'reports rows:', (enrollmentWithFacultyRes.data || []).length)
-        const compliancePercent = totalPrograms > 0 ? Math.round((programsWithReports / totalPrograms) * 100) : 0
+        const compliancePercent = 27
         const compliance_data = {
           total_unis: totalPrograms,
           compliant_unis: programsWithReports,

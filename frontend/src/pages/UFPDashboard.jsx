@@ -562,66 +562,31 @@ function UFPDashboard() {
                     No campuses yet
                   </div>
                 ) : (
-                  // TEMPORARY FOCUS MODE for supervisor demo:
-                  // Original mapping (restore after 1 PM):
-                  //
-                  // campuses.map((campus) => {
-                  //   const isActive = location.pathname === `/ufp/campus/${campus.id}`
-                  //   return (
-                  //     <button
-                  //       key={campus.id}
-                  //       onClick={() => navigate(`/ufp/campus/${campus.id}`)}
-                  //       className={`w-full flex items-center justify-between px-5 py-3 transition-all text-sm tracking-wide font-medium rounded-lg ${
-                  //         isActive
-                  //           ? 'bg-slate-800 text-white'
-                  //           : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  //       }`}
-                  //     >
-                  //       <div className="flex items-center gap-3">
-                  //         <div className="w-2 h-2 rounded-full bg-slate-500"></div>
-                  //         <span className="truncate">{campus.name}</span>
-                  //         {campus.is_main_campus && (
-                  //           <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs rounded-full">
-                  //             Main
-                  //           </span>
-                  //         )}
-                  //       </div>
-                  //       <ChevronRight className="w-4 h-4" />
-                  //     </button>
-                  //   )
-                  // })
-                  //
-                  // Focus Mode: only show the Sukkur IBA main campus in this list.
-                  campuses
-                    .filter((campus) => {
-                      const name = (campus.name || '').toLowerCase()
-                      return name.includes('sukkur iba')
-                    })
-                    .map((campus) => {
-                      const isActive = location.pathname === `/ufp/campus/${campus.id}`
-                      return (
-                        <button
-                          key={campus.id}
-                          onClick={() => navigate(`/ufp/campus/${campus.id}`)}
-                          className={`w-full flex items-center justify-between px-5 py-3 transition-all text-sm tracking-wide font-medium rounded-lg ${
-                            isActive
-                              ? 'bg-slate-800 text-white'
-                              : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-slate-500"></div>
-                            <span className="truncate">{campus.name}</span>
-                            {campus.is_main_campus && (
-                              <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs rounded-full">
-                                Main
-                              </span>
-                            )}
-                          </div>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      )
-                    })
+                  campuses.map((campus) => {
+                    const isActive = location.pathname === `/ufp/campus/${campus.id}`
+                    return (
+                      <button
+                        key={campus.id}
+                        onClick={() => navigate(`/ufp/campus/${campus.id}`)}
+                        className={`w-full flex items-center justify-between px-5 py-3 transition-all text-sm tracking-wide font-medium rounded-lg ${
+                          isActive
+                            ? 'bg-slate-800 text-white'
+                            : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                          <span className="truncate">{campus.name}</span>
+                          {campus.is_main_campus && (
+                            <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs rounded-full">
+                              Main
+                            </span>
+                          )}
+                        </div>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )
+                  })
                 )}
                 {/* Manage Campuses Button (inside dropdown) */}
                 <button
