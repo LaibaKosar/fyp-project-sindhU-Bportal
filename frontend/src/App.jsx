@@ -25,6 +25,7 @@ import InstitutionalIntelligence from './pages/InstitutionalIntelligence'
 import TSADashboard from './pages/TSADashboard'
 import AdminLayout from './components/AdminLayout'
 import LoadingScreen from './components/LoadingScreen'
+import { UB_ADMIN_FOCAL_CREATE_FLAG } from './lib/ubAdminSessionFlags'
 
 // Protected Route Component
 function ProtectedRoute({ children, requiredRole }) {
@@ -36,9 +37,15 @@ function ProtectedRoute({ children, requiredRole }) {
     let mounted = true;
     
     const checkAuth = async () => {
+      const preserveUbAdminDuringFocal =
+        requiredRole === 'U&B_ADMIN' &&
+        typeof sessionStorage !== 'undefined' &&
+        sessionStorage.getItem(UB_ADMIN_FOCAL_CREATE_FLAG) === '1'
+
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       if (!session) {
+        if (preserveUbAdminDuringFocal) return
         if (mounted) {
           setAuthorized(false)
           setLoading(false)
@@ -56,6 +63,7 @@ function ProtectedRoute({ children, requiredRole }) {
       if (!mounted) return;
 
       if (profileError || !profile) {
+        if (preserveUbAdminDuringFocal) return
         setAuthorized(false)
         setLoading(false)
         return
@@ -63,6 +71,9 @@ function ProtectedRoute({ children, requiredRole }) {
 
       // Check role authorization
       if (requiredRole && profile.role !== requiredRole) {
+        // signUp logs in the new UFP briefly; TOKEN_REFRESHED/SIGNED_IN would otherwise
+        // clear admin and send the user to /login → UFP. Keep prior authorized state.
+        if (preserveUbAdminDuringFocal) return
         setAuthorized(false)
         setLoading(false)
         return

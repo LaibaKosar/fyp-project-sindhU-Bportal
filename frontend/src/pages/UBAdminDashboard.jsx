@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
+import { UB_ADMIN_FOCAL_CREATE_FLAG } from '../lib/ubAdminSessionFlags'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, ChevronDown, ChevronUp, Lock, Unlock, UserCheck, UserX } from 'lucide-react'
+import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, ChevronDown, ChevronUp, Lock, Unlock, UserCheck, UserX, Calendar, ClipboardList, Landmark } from 'lucide-react'
 import RegisteredUniversitiesByRegion from '../components/RegisteredUniversitiesByRegion'
 import GovernanceCharts, { getResourceInsightForItem } from '../components/GovernanceCharts'
 import GovernanceActivityFeed from '../components/GovernanceActivityFeed'
@@ -620,18 +621,24 @@ function UBAdminDashboard() {
 
   // Check for duplicate email or password
   const checkDuplicates = async (email) => {
-    const { data: emailCheck } = await supabase
+    const { data: row, error: profileLookupError } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, university_id')
       .eq('email', email)
       .maybeSingle()
 
-    if (emailCheck) {
-      return { isDuplicate: true, message: 'This email is already assigned to another user.' }
+    if (profileLookupError) {
+      console.warn('Profile duplicate check:', profileLookupError)
     }
 
-    // Note: We can't directly check passwords in Supabase Auth from client side
-    
+    if (row) {
+      const orphan =
+        row.university_id == null
+          ? 'This email still has a login from a removed university. In Supabase go to Authentication → Users, delete that user, or use another email.'
+          : 'This email is already assigned to another user.'
+      return { isDuplicate: true, message: orphan }
+    }
+
     return { isDuplicate: false }
   }
 
@@ -679,6 +686,8 @@ function UBAdminDashboard() {
         throw new Error('Admin session lost. Please log in again.')
       }
 
+      sessionStorage.setItem(UB_ADMIN_FOCAL_CREATE_FLAG, '1')
+
       // Store admin session tokens
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: focalPersonEmail,
@@ -694,7 +703,12 @@ function UBAdminDashboard() {
       })
 
       if (authError) {
-        // If signUp failed, admin session should still be intact
+        const raw = authError.message || ''
+        if (/already registered|already been registered|user already exists|exists/i.test(raw)) {
+          throw new Error(
+            'This email is already in Authentication. Open Supabase → Authentication → Users, delete that user, then try again—or use a different email.'
+          )
+        }
         throw authError
       }
 
@@ -713,14 +727,6 @@ function UBAdminDashboard() {
           console.error('Error restoring admin session:', sessionError)
           throw new Error('Failed to restore admin session. Please log in again.')
         }
-      }
-
-      if (authError) {
-        // Handle specific error cases
-        if (authError.message.includes('already registered')) {
-          throw new Error('This email is already registered. Please use a different email.')
-        }
-        throw authError
       }
 
       // Update profile entry (trigger creates it automatically, we just update it)
@@ -751,9 +757,16 @@ function UBAdminDashboard() {
       await fetchUniversities()
     } catch (error) {
       console.error('Error creating university account:', error)
-      showToast(error.message || 'Error creating university account', 'error')
+      showToast(error?.message || 'Error creating university account', 'error')
     } finally {
       setIsCreating(false)
+      // Defer clearing so TOKEN_REFRESHED / late SIGNED_IN handlers still see the flag
+      // during the same turn as setSession(admin).
+      queueMicrotask(() => {
+        queueMicrotask(() => {
+          sessionStorage.removeItem(UB_ADMIN_FOCAL_CREATE_FLAG)
+        })
+      })
     }
   }
 
@@ -1589,7 +1602,7 @@ function UBAdminDashboard() {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-white border border-indigo-100 rounded-xl overflow-hidden shadow-md shadow-indigo-900/5 ring-1 ring-slate-100">
                   {!accountsIsDemo && accountsLoading && accountsList.length === 0 ? (
                     <div className="p-12 text-center text-slate-500">
                       <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-600" />
@@ -1602,9 +1615,10 @@ function UBAdminDashboard() {
                   ) : (
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-medium">
+                        <tr className="bg-gradient-to-r from-slate-50 to-indigo-50/40 border-b border-indigo-100 text-slate-600 text-sm font-medium">
                           <th className="px-4 py-4">University name</th>
                           <th className="px-4 py-4">Focal person</th>
+                          <th className="px-4 py-4 min-w-[200px]">Email</th>
                           <th className="px-4 py-4">Setup complete</th>
                           <th className="px-4 py-4">Locked</th>
                           <th className="px-4 py-4 w-[1%] whitespace-nowrap">Actions</th>
@@ -1612,9 +1626,35 @@ function UBAdminDashboard() {
                       </thead>
                       <tbody>
                         {accountsDisplayList.map((acc) => (
-                          <tr key={acc.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-5 text-slate-900 font-medium">{acc.universities?.name || '—'}</td>
-                            <td className="px-4 py-5 text-slate-700">{acc.full_name || acc.email || '—'}</td>
+                          <tr key={acc.id} className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors">
+                            <td className="px-4 py-5">
+                              <span className="flex items-start gap-2.5 text-slate-900 font-medium">
+                                <University className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" aria-hidden />
+                                <span>{acc.universities?.name || '—'}</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-5">
+                              <span className="flex items-center gap-2 text-slate-700">
+                                <User className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />
+                                <span>{acc.full_name?.trim() || '—'}</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-5">
+                              {acc.email ? (
+                                <a
+                                  href={`mailto:${acc.email}`}
+                                  className="inline-flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline break-all"
+                                >
+                                  <Mail className="w-4 h-4 shrink-0 text-blue-500" aria-hidden />
+                                  <span>{acc.email}</span>
+                                </a>
+                              ) : (
+                                <span className="inline-flex items-center gap-2 text-sm text-slate-400">
+                                  <Mail className="w-4 h-4 shrink-0 opacity-50" aria-hidden />
+                                  —
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-5">
                               <span
                                 className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
@@ -1966,42 +2006,82 @@ function UBAdminDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/55 backdrop-blur-sm"
             onClick={() => setDecisionViewMeeting(null)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 12 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full max-h-[85vh] flex flex-col"
+              className="bg-white rounded-2xl shadow-2xl shadow-indigo-900/10 border border-indigo-100 max-w-2xl w-full max-h-[90vh] min-h-[min(420px,70vh)] flex flex-col overflow-hidden ring-1 ring-indigo-500/10"
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Meeting decisions</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    {decisionViewMeeting.subject || 'Meeting'} · {decisionViewMeeting.body_type || '—'} · {decisionViewMeeting.meeting_date ? new Date(decisionViewMeeting.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                  </p>
+              <div className="relative flex-shrink-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 px-8 py-6 text-white">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_100%_0%,rgba(255,255,255,0.15),transparent)] pointer-events-none rounded-t-2xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div className="flex gap-4 min-w-0">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm ring-1 ring-white/25">
+                      <ClipboardList className="h-7 w-7 text-white" aria-hidden />
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <h3 className="text-xl font-bold tracking-tight text-white drop-shadow-sm">
+                        Meeting decisions
+                      </h3>
+                      <div className="mt-3 flex flex-col gap-2 text-sm text-blue-100">
+                        <div className="flex items-start gap-2">
+                          <FileText className="h-4 w-4 shrink-0 mt-0.5 text-cyan-200" aria-hidden />
+                          <span className="leading-snug">
+                            {decisionViewMeeting.subject || 'Meeting'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
+                            <Landmark className="h-3.5 w-3.5 text-amber-200" aria-hidden />
+                            {decisionViewMeeting.body_type || '—'}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-100">
+                            <Calendar className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
+                            {decisionViewMeeting.meeting_date
+                              ? new Date(decisionViewMeeting.meeting_date).toLocaleDateString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDecisionViewMeeting(null)}
+                    className="shrink-0 rounded-lg p-2 text-white/90 hover:bg-white/15 hover:text-white transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDecisionViewMeeting(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
-              <div className="px-6 py-4 overflow-y-auto flex-1">
-                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <div className="flex-1 overflow-y-auto px-8 py-6 bg-gradient-to-b from-indigo-50/40 via-white to-emerald-50/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                    <ClipboardList className="h-4 w-4" aria-hidden />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800/80">
+                    Decision summary
+                  </span>
+                </div>
+                <p className="text-slate-800 whitespace-pre-wrap leading-relaxed text-[15px] border-l-4 border-indigo-200 pl-4 py-1">
                   {decisionViewMeeting.decisions_summary || 'No decision summary recorded.'}
                 </p>
               </div>
-              <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+              <div className="flex-shrink-0 px-8 py-4 border-t border-indigo-100 bg-gradient-to-r from-slate-50 to-indigo-50/50 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setDecisionViewMeeting(null)}
-                  className="w-full py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  className="w-full py-3 text-sm font-semibold text-white rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-md shadow-indigo-600/25 transition-all"
                 >
                   Close
                 </button>
