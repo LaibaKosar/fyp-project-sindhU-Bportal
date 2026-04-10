@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   PieChart,
   Pie,
@@ -46,6 +47,10 @@ function ChartInfoCard({ title, insights, children, className = '' }) {
       onMouseLeave={(e) => {
         // Only hide when the cursor actually leaves the whole card (including the tooltip),
         // not when moving between the chart area and the floating info panel.
+        if (!(e.relatedTarget instanceof Node)) {
+          setShow(false)
+          return
+        }
         if (!e.currentTarget.contains(e.relatedTarget)) {
           setShow(false)
         }
@@ -131,7 +136,7 @@ function getComplianceStats(raw) {
   return { total, compliant, percent }
 }
 
-function CityDistributionChart({ data }) {
+function CityDistributionChart({ data, onHoverCity }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const series = normalizeCityDistribution(data)
@@ -145,20 +150,26 @@ function CityDistributionChart({ data }) {
   }
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] min-h-[280px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
+      <div className="w-full h-[420px] min-h-[300px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
               data={series}
               dataKey="value"
               nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={90}
+              cx="42%"
+              cy="52%"
+              outerRadius={148}
               stroke="#fff"
-              strokeWidth={1.5}
+              strokeWidth={2}
               labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
               label={PieSliceLabel}
+              onMouseEnter={(_, index) => {
+                if (onHoverCity) onHoverCity(series[index] || null)
+              }}
+              onMouseLeave={() => {
+                if (onHoverCity) onHoverCity(null)
+              }}
             >
               {series.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
@@ -187,17 +198,19 @@ function GenderRatioChart({ data }) {
   }
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] min-h-[280px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
+      <div className="w-full h-[420px] min-h-[300px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
               data={series}
               dataKey="value"
               nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={90}
+              cx="42%"
+              cy="52%"
+              innerRadius={76}
+              outerRadius={148}
+              stroke="#fff"
+              strokeWidth={2.5}
               paddingAngle={2}
               label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
             >
@@ -218,6 +231,34 @@ function ComplianceStatusRing({ data }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const { total, compliant, percent } = getComplianceStats(data)
+  const [animatedPercent, setAnimatedPercent] = useState(0)
+  const missingPrograms = Math.max(0, total - compliant)
+  const ringData = [
+    { name: 'Covered', value: compliant },
+    { name: 'Missing', value: missingPrograms }
+  ]
+
+  useEffect(() => {
+    if (!mounted) return
+    let rafId = null
+    const duration = 1000
+    const start = performance.now()
+
+    const tick = (now) => {
+      const elapsed = now - start
+      const progress = Math.min(elapsed / duration, 1)
+      const nextValue = Math.round(percent * progress)
+      setAnimatedPercent(nextValue)
+      if (progress < 1) rafId = requestAnimationFrame(tick)
+    }
+
+    setAnimatedPercent(0)
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [mounted, percent])
+
   if (!mounted) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Loading...</div>
   if (total === 0) {
     return (
@@ -226,32 +267,43 @@ function ComplianceStatusRing({ data }) {
       </div>
     )
   }
-  const circumference = 2 * Math.PI * 45
-  const strokeDash = (percent / 100) * circumference
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] w-full min-w-0 flex flex-col items-center justify-center p-3 overflow-hidden">
-        <div className="relative w-32 h-32 shrink-0">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#e2e8f0" strokeWidth="10" />
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              fill="none"
-              stroke={percent >= 80 ? '#10b981' : percent >= 50 ? '#f59e0b' : '#ef4444'}
-              strokeWidth="10"
-              strokeDasharray={`${strokeDash} ${circumference}`}
-              strokeLinecap="round"
-              className="transition-all duration-500"
-            />
-          </svg>
+      <div className="h-full w-full min-w-0 flex flex-col items-center justify-center p-1 sm:p-2 overflow-hidden min-h-0">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Coverage Status</p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="relative w-full h-full max-w-[380px] max-h-[260px] min-h-0"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={ringData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={80}
+                outerRadius={124}
+                startAngle={90}
+                endAngle={-270}
+                isAnimationActive
+                animationDuration={1000}
+                animationEasing="ease-out"
+                stroke="#ffffff"
+                strokeWidth={2}
+              >
+                <Cell fill="#10b981" />
+                <Cell fill="#e2e8f0" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-slate-900">{percent}%</span>
+            <span className="text-4xl font-bold text-slate-900">{animatedPercent}%</span>
           </div>
-        </div>
-        <p className="text-sm font-medium text-slate-700 mt-1.5 shrink-0">Programs with reports</p>
-        <p className="text-xs text-slate-500 shrink-0">{compliant} of {total} programs have enrollment data</p>
+        </motion.div>
       </div>
     </ChartErrorBoundary>
   )
@@ -260,18 +312,30 @@ function ComplianceStatusRing({ data }) {
 // Top universities: [{ name, value }] or [{ university_name, total_enrollment }]
 function normalizeTopUniversities(raw) {
   if (!raw || !Array.isArray(raw)) return []
-  return raw.slice(0, 10).map((item) => {
+  return raw.slice(0, 10).map((item, index) => {
     if (!item) return null
-    const name = item.name ?? item.university_name ?? 'Unknown'
+    const fullName = item.name ?? item.university_name ?? 'Unknown'
     const value = Number(item.value ?? item.total_enrollment ?? item.enrollment ?? 0)
-    return { name: name.length > 25 ? name.slice(0, 22) + '…' : name, value }
+    const maleStudents = Number(item.maleStudents ?? 0)
+    const femaleStudents = Number(item.femaleStudents ?? 0)
+    const malePercent = item.malePercent != null ? Number(item.malePercent) : (value > 0 ? Math.round((maleStudents / value) * 100) : 0)
+    const femalePercent = item.femalePercent != null ? Number(item.femalePercent) : (value > 0 ? Math.round((femaleStudents / value) * 100) : 0)
+    const universityId = item.universityId ?? null
+    const rank = item.rank ?? (index + 1)
+    return { name: fullName, fullName, value, universityId, maleStudents, femaleStudents, malePercent, femalePercent, rank }
   }).filter(Boolean)
 }
 
-function TopUniversitiesChart({ data }) {
+function TopUniversitiesChart({ data, onHoverUniversity }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const series = normalizeTopUniversities(data)
+  const totalUniversities = Array.isArray(data) ? data.length : 0
+  const visibleCount = series.length
+  const formatUniversityLabel = (name) => {
+    const label = String(name ?? '')
+    return label.length > 20 ? `${label.slice(0, 20)}...` : label
+  }
   if (!mounted) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Loading...</div>
   if (series.length === 0) {
     return (
@@ -282,14 +346,36 @@ function TopUniversitiesChart({ data }) {
   }
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] min-h-[280px] w-full min-w-0">
+      <div className="w-full h-[420px] min-h-[300px]">
+        <div className="px-1 pb-2">
+          <p className="text-[11px] text-slate-500">Showing top {visibleCount} of {totalUniversities} universities ranked by total enrollment</p>
+        </div>
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
-          <BarChart data={series} layout="vertical" margin={{ left: 8, right: 8 }}>
+          <BarChart
+            data={series}
+            layout="vertical"
+            margin={{ left: 8, right: 8 }}
+            barCategoryGap="22%"
+            onMouseMove={(state) => {
+              const hoveredItem = state?.activePayload?.[0]?.payload || null
+              if (onHoverUniversity) onHoverUniversity(hoveredItem)
+            }}
+            onMouseLeave={() => {
+              if (onHoverUniversity) onHoverUniversity(null)
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis type="number" tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(value) => [value, 'Students']} />
-            <Bar dataKey="value" name="Enrolled" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+            <YAxis type="category" dataKey="name" width={190} tick={{ fontSize: 11 }} tickFormatter={formatUniversityLabel} />
+            <Tooltip
+              formatter={(value) => [value, 'Students']}
+              labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+            />
+            <Bar dataKey="value" name="Enrolled" radius={[0, 8, 8, 0]} animationDuration={800}>
+              {series.map((entry, index) => (
+                <Cell key={entry.name} fill={index === 0 ? '#1d4ed8' : '#60a5fa'} />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -325,7 +411,7 @@ function EnrollmentByFacultyTypeChart({ data }) {
   }
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] min-h-[280px] w-full min-w-0">
+      <div className="w-full h-[420px] min-h-[300px]">
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
           <BarChart data={series} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -358,7 +444,7 @@ function normalizeRegionalParity(raw) {
   }).filter(Boolean)
 }
 
-function RegionalParityChart({ data }) {
+function RegionalParityChart({ data, onHoverRegion }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const series = normalizeRegionalParity(data)
@@ -372,9 +458,22 @@ function RegionalParityChart({ data }) {
   }
   return (
     <ChartErrorBoundary>
-      <div className="h-[280px] min-h-[280px] w-full min-w-0">
+      <div className="w-full h-[420px] min-h-[300px]">
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
-          <ComposedChart data={series} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+          <ComposedChart
+            data={series}
+            margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+            onMouseMove={(state) => {
+              const activeLabel = state?.activeLabel
+              const hoveredItem = activeLabel
+                ? (series.find((item) => item.city === activeLabel) || null)
+                : (state?.activePayload?.[0]?.payload || null)
+              if (onHoverRegion) onHoverRegion(hoveredItem)
+            }}
+            onMouseLeave={() => {
+              if (onHoverRegion) onHoverRegion(null)
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="city" tick={{ fontSize: 10 }} />
             <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
@@ -473,55 +572,375 @@ export default function LandingCharts({
   cityDistribution,
   genderData,
   complianceData,
+  complianceDetails = null,
   topUniversities = null,
   enrollmentByFacultyType = null,
   regionalParity = null
 }) {
   const insights = getChartInsights(cityDistribution, genderData, complianceData, topUniversities, enrollmentByFacultyType, regionalParity)
+  const chartTabs = [
+    { id: 'topUniversities', label: 'Top Universities', title: 'Top 10 Universities by Enrollment' },
+    { id: 'city', label: 'City Distribution', title: 'Universities by city' },
+    { id: 'compliance', label: 'Enrollment Reporting Coverage', title: 'Enrollment reporting coverage' },
+    { id: 'gender', label: 'Gender Ratio', title: 'Gender ratio (all students)' },
+    { id: 'enrollmentByFaculty', label: 'STEM vs Non-STEM', title: 'Enrollment by faculty type' },
+    { id: 'regionalParity', label: 'Regional Parity', title: 'Regional enrollment parity' }
+  ]
+  const [activeChart, setActiveChart] = useState('topUniversities')
+  const [complianceListMode, setComplianceListMode] = useState(null)
+  const [hoveredTopUniversity, setHoveredTopUniversity] = useState(null)
+  const [hoveredCity, setHoveredCity] = useState(null)
+  const [hoveredRegion, setHoveredRegion] = useState(null)
+  const tabIds = useMemo(
+    () =>
+      chartTabs.reduce((acc, tab) => {
+        acc[tab.id] = {
+          tabId: `landing-chart-tab-${tab.id}`,
+          panelId: `landing-chart-panel-${tab.id}`
+        }
+        return acc
+      }, {}),
+    []
+  )
+
+  const activeTab = chartTabs.find((tab) => tab.id === activeChart) ?? chartTabs[0]
+  const activeInsightLines = insights[activeChart]?.insights ?? ['No analytics insight available yet.']
+  const activeInsight = activeInsightLines[0] ?? 'No analytics insight available yet.'
+  const activeTakeaway =
+    activeChart === 'gender' && activeInsightLines.length >= 3
+      ? `${activeInsightLines[1]}\n${activeInsightLines[2]}`
+      : activeChart === 'enrollmentByFaculty' && activeInsightLines.length >= 2
+        ? `${activeInsightLines[0]}\n${activeInsightLines[1]}`
+        : (activeInsightLines[1] ?? activeInsight)
+
+  const renderActiveChart = () => {
+    if (activeChart === 'topUniversities') return <TopUniversitiesChart data={topUniversities} onHoverUniversity={setHoveredTopUniversity} />
+    if (activeChart === 'city') return <CityDistributionChart data={cityDistribution} onHoverCity={setHoveredCity} />
+    if (activeChart === 'gender') return <GenderRatioChart data={genderData} />
+    if (activeChart === 'enrollmentByFaculty') return <EnrollmentByFacultyTypeChart data={enrollmentByFacultyType} />
+    if (activeChart === 'compliance') return <ComplianceStatusRing data={complianceData} />
+    return <RegionalParityChart data={regionalParity} onHoverRegion={setHoveredRegion} />
+  }
+  const handleTabKeyDown = (e, currentId) => {
+    const currentIndex = chartTabs.findIndex((tab) => tab.id === currentId)
+    if (currentIndex < 0) return
+
+    let nextIndex = currentIndex
+    if (e.key === 'ArrowRight') nextIndex = (currentIndex + 1) % chartTabs.length
+    if (e.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + chartTabs.length) % chartTabs.length
+    if (e.key === 'Home') nextIndex = 0
+    if (e.key === 'End') nextIndex = chartTabs.length - 1
+
+    if (nextIndex !== currentIndex) {
+      e.preventDefault()
+      const nextId = chartTabs[nextIndex].id
+      setActiveChart(nextId)
+      const nextTabEl = document.getElementById(tabIds[nextId].tabId)
+      if (nextTabEl) nextTabEl.focus()
+    }
+  }
+
+  const comp = getComplianceStats(complianceData)
+  const coveredPrograms = Number(complianceData?.covered_programs ?? comp.compliant ?? 0)
+  const totalPrograms = Number(complianceData?.total_programs ?? comp.total ?? 0)
+  const missingPrograms = Number(complianceData?.missing_programs ?? Math.max(0, totalPrograms - coveredPrograms))
+  const coveredPct = totalPrograms > 0 ? Math.round((coveredPrograms / totalPrograms) * 100) : 0
+  const missingPct = totalPrograms > 0 ? Math.round((missingPrograms / totalPrograms) * 100) : 0
+  const complianceListItems = complianceListMode === 'covered'
+    ? (complianceDetails?.covered || [])
+    : (complianceDetails?.missing || [])
+  const normalizedTopUniversities = normalizeTopUniversities(topUniversities)
+  const topUniversityDetail = hoveredTopUniversity || normalizedTopUniversities[0] || null
+  const normalizedCitySeries = normalizeCityDistribution(cityDistribution)
+  const defaultCity = normalizedCitySeries.length > 0
+    ? normalizedCitySeries.reduce((a, b) => (a.value >= b.value ? a : b), normalizedCitySeries[0])
+    : null
+  const cityDetail = hoveredCity || defaultCity
+  const normalizedRegionalSeries = normalizeRegionalParity(regionalParity)
+  const defaultRegion = normalizedRegionalSeries.length > 0
+    ? normalizedRegionalSeries.reduce((a, b) => (a.students >= b.students ? a : b), normalizedRegionalSeries[0])
+    : null
+  const regionalDetail = hoveredRegion || defaultRegion
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <ChartInfoCard title={insights.city.title} insights={insights.city.insights}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Universities by city</h3>
-          <p className="text-xs text-slate-500 mb-3">Number of universities per city. Use this to see which cities have more or fewer institutions.</p>
-          <CityDistributionChart data={cityDistribution} />
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-2 shadow-sm">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Analytics chart tabs">
+          {chartTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveChart(tab.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
+              id={tabIds[tab.id].tabId}
+              role="tab"
+              aria-selected={activeChart === tab.id}
+              aria-controls={tabIds[tab.id].panelId}
+              tabIndex={activeChart === tab.id ? 0 : -1}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-200 ${
+                activeChart === tab.id
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ChartInfoCard title={insights[activeChart]?.title ?? 'From this data'} insights={activeInsightLines}>
+        <div
+          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          id={tabIds[activeChart].panelId}
+          role="tabpanel"
+          aria-labelledby={tabIds[activeChart].tabId}
+        >
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">{activeTab.title}</h3>
+            <p className="text-xs text-slate-500 mt-1">Focused analytics view. Switch tabs to review each dataset clearly.</p>
+          </div>
+          {activeChart === 'compliance' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-[460px] items-stretch">
+              <div className="lg:col-span-7 h-full rounded-xl bg-slate-50 border border-slate-100 p-3 sm:p-4 overflow-hidden flex flex-col">
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeChart}
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="h-full w-full flex items-center justify-center"
+                    >
+                      {renderActiveChart()}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setComplianceListMode('covered')}
+                    className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-left hover:bg-emerald-100 transition-colors"
+                  >
+                    <p className="text-[11px] uppercase tracking-wide font-semibold text-emerald-700">Covered Programs</p>
+                    <p className="text-xl font-bold text-emerald-800 mt-1">{coveredPrograms}</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">{coveredPct}% of total</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComplianceListMode('missing')}
+                    className="rounded-lg border border-red-200 bg-red-50 p-3 text-left hover:bg-red-100 transition-colors"
+                  >
+                    <p className="text-[11px] uppercase tracking-wide font-semibold text-red-700">Missing Programs</p>
+                    <p className="text-xl font-bold text-red-800 mt-1">{missingPrograms}</p>
+                    <p className="text-xs text-red-700 mt-0.5">{missingPct}% of total</p>
+                  </button>
+                </div>
+              </div>
+
+              <motion.aside
+                key={`side-panel-${activeChart}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="lg:col-span-3 h-full rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 flex flex-col"
+              >
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-emerald-800">What this means</p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">{activeInsight}</p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-blue-800">Key takeaway</p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed whitespace-pre-line">{activeTakeaway}</p>
+                  </div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                    <p className="text-[11px] uppercase tracking-wide font-semibold text-red-800">Attention</p>
+                    <p className="text-sm text-red-900 mt-1 leading-relaxed">
+                      {activeTakeaway.includes('missing') ? activeTakeaway : 'Some programs are still missing enrollment data and should be prioritized for reporting.'}
+                    </p>
+                  </div>
+                  <div className="pt-1 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setComplianceListMode('missing')}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-red-100 text-red-800 border border-red-200 hover:bg-red-200 transition-colors"
+                    >
+                      View Missing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComplianceListMode('covered')}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors"
+                    >
+                      View Covered
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 flex-1 min-h-[120px] rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] uppercase tracking-wide font-semibold text-slate-600">Details Panel</p>
+                  {complianceListMode ? (
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                      {complianceListMode === 'missing'
+                        ? `Missing programs selected (${complianceListItems.length}). Use "View Missing" to open the full list.`
+                        : `Covered programs selected (${complianceListItems.length}). Use "View Covered" to open the full list.`}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                      Select "View Missing" or "View Covered" to inspect detailed program lists.
+                    </p>
+                  )}
+                </div>
+              </motion.aside>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-[460px]">
+              <div className="lg:col-span-7 h-[380px] lg:h-full rounded-xl bg-slate-50 border border-slate-100 p-1 sm:p-2 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeChart}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="h-full"
+                  >
+                    {renderActiveChart()}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              <motion.aside
+                key={`side-panel-${activeChart}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="lg:col-span-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5"
+              >
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-emerald-800">Insight</p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">{activeInsight}</p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-blue-800">Key Takeaway</p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed whitespace-pre-line">{activeTakeaway}</p>
+                  </div>
+                  {activeChart === 'regionalParity' && regionalDetail && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-700">Regional Detail</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">{regionalDetail.city}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2.5">
+                        <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5">
+                          <p className="text-[10px] uppercase tracking-wide font-semibold text-blue-700">Students</p>
+                          <p className="text-base font-bold text-blue-900 mt-0.5">{Number(regionalDetail.students || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5">
+                          <p className="text-[10px] uppercase tracking-wide font-semibold text-emerald-700">Universities</p>
+                          <p className="text-base font-bold text-emerald-900 mt-0.5">{Number(regionalDetail.universities || 0)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {activeChart === 'city' && cityDetail && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-700">City Detail</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">{cityDetail.name}</p>
+                      <p className="text-3xl font-bold text-slate-900 mt-2">{Number(cityDetail.value || 0)}</p>
+                      <p className="text-xs text-slate-500">universities in this city</p>
+                    </div>
+                  )}
+                  {activeChart === 'topUniversities' && topUniversityDetail && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-700">University Details</p>
+                      <p className="text-sm font-bold text-red-700 mt-1">
+                        Rank: #{topUniversityDetail.rank ?? 1} by total enrollment
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">{topUniversityDetail.fullName}</p>
+                      <div className="mt-2 space-y-1 text-xs text-slate-700">
+                        <p>Total students: <span className="font-semibold text-slate-900">{Number(topUniversityDetail.value || 0).toLocaleString()}</span></p>
+                        <p>Male students: <span className="font-semibold text-slate-900">{Number(topUniversityDetail.maleStudents || 0).toLocaleString()}</span></p>
+                        <p>Female students: <span className="font-semibold text-slate-900">{Number(topUniversityDetail.femaleStudents || 0).toLocaleString()}</span></p>
+                        <p>Gender split: <span className="font-semibold text-slate-900">{Number(topUniversityDetail.malePercent || 0)}%</span> male / <span className="font-semibold text-slate-900">{Number(topUniversityDetail.femalePercent || 0)}%</span> female</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.aside>
+            </div>
+          )}
         </div>
       </ChartInfoCard>
-      <ChartInfoCard title={insights.gender.title} insights={insights.gender.insights}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Gender ratio (all students)</h3>
-          <p className="text-xs text-slate-500 mb-3">Male vs female enrollment across all universities and programs.</p>
-          <GenderRatioChart data={genderData} />
+
+      {activeChart === 'compliance' && complianceListMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]" onClick={() => setComplianceListMode(null)} />
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl"
+          >
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h4 className="text-base font-bold text-slate-900">
+                  {complianceListMode === 'missing' ? 'Missing Programs' : 'Covered Programs'}
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {complianceListItems.length} {complianceListItems.length === 1 ? 'program' : 'programs'} listed
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                    complianceListMode === 'missing'
+                      ? 'bg-red-100 text-red-800 border border-red-200'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  }`}
+                >
+                  {complianceListMode === 'missing' ? 'Action Needed' : 'Reported'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setComplianceListMode(null)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-200 text-slate-800 hover:bg-slate-300"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(80vh-64px)]">
+              {complianceListItems.length === 0 ? (
+                <p className="text-sm text-slate-500">No program records available.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {complianceListItems.map((item, idx) => (
+                    <div
+                      key={`${item.programId || 'prog'}-${idx}`}
+                      className={`rounded-lg border p-3 ${
+                        complianceListMode === 'missing'
+                          ? 'border-red-200 bg-red-50/60'
+                          : 'border-emerald-200 bg-emerald-50/60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.programName || 'Unknown Program'}</p>
+                          <p className="text-xs text-slate-700 mt-0.5">{item.universityName || 'Unknown University'}</p>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-600 bg-white/70 border border-slate-200 rounded px-2 py-0.5">
+                          {item.programId || 'N/A'}
+                        </span>
+                      </div>
         </div>
-      </ChartInfoCard>
-      <ChartInfoCard title={insights.compliance.title} insights={insights.compliance.insights}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Report compliance</h3>
-          <p className="text-xs text-slate-500 mb-3">Share of programs that have enrollment reports (e.g., BE Electrical, BS AI missing = lower %).</p>
-          <ComplianceStatusRing data={complianceData} />
+                  ))}
         </div>
-      </ChartInfoCard>
-      <ChartInfoCard title={insights.topUniversities.title} insights={insights.topUniversities.insights}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Top universities by enrollment</h3>
-          <p className="text-xs text-slate-500 mb-3">Universities with the highest total enrollment. Use this to see where students are concentrated.</p>
-          <TopUniversitiesChart data={topUniversities} />
+              )}
         </div>
-      </ChartInfoCard>
-      <ChartInfoCard title={insights.enrollmentByFaculty.title} insights={insights.enrollmentByFaculty.insights} className="md:col-span-2 lg:col-span-1">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Enrollment by faculty type</h3>
-          <p className="text-xs text-slate-500 mb-3">Enrollment vs capacity by faculty type (STEM vs Humanities) to spot over-enrollment and balance degree focus.</p>
-          <EnrollmentByFacultyTypeChart data={enrollmentByFacultyType} />
+          </motion.div>
         </div>
-      </ChartInfoCard>
-      <ChartInfoCard title={insights.regionalParity.title} insights={insights.regionalParity.insights}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">Regional enrollment parity</h3>
-          <p className="text-xs text-slate-500 mb-3">Students per city (bars) and number of universities per city (line). See if student concentration matches institutional distribution across Sindh.</p>
-          <RegionalParityChart data={regionalParity} />
-        </div>
-      </ChartInfoCard>
+      )}
     </div>
   )
 }

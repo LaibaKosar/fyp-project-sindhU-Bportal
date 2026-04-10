@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, MapPin, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye } from 'lucide-react'
-import SindhMockMap from '../components/SindhMockMap'
+import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, ChevronDown, ChevronUp, Lock, Unlock, UserCheck, UserX } from 'lucide-react'
+import RegisteredUniversitiesByRegion from '../components/RegisteredUniversitiesByRegion'
 import GovernanceCharts, { getResourceInsightForItem } from '../components/GovernanceCharts'
 import GovernanceActivityFeed from '../components/GovernanceActivityFeed'
 import DataTable from '../components/DataTable'
@@ -119,6 +120,197 @@ const DUMMY_MEETINGS = [
   { id: 'dm10', body_type: 'Syndicate', meeting_date: '2024-08-20', subject: 'Appointments and Promotions', venue: 'VC Office', universities: { name: 'University of Sindh' }, attendance: 'Present: VC, members. Absent: 2.', decisions_summary: 'Faculty promotions and new appointments ratified.', status: 'Official', notification_url: null, minutes_url: null },
 ]
 
+/** Split typical "Present: A, B. Absent: C." attendance strings into name lists. */
+function parseMeetingAttendance(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return { present: [], absent: [], unstructured: '' }
+  }
+  const t = raw.trim()
+  if (!t) return { present: [], absent: [], unstructured: '' }
+
+  const absentIdx = t.search(/\bAbsent:\s*/i)
+  if (absentIdx === -1) {
+    return { present: [], absent: [], unstructured: t }
+  }
+
+  const beforeAbsent = t.slice(0, absentIdx).trim()
+  const absentSegment = t.slice(absentIdx).replace(/\bAbsent:\s*/i, '').trim()
+  const presentStr = beforeAbsent.replace(/^\s*Present:\s*/i, '').replace(/\s*\.?\s*$/, '').trim()
+
+  const splitNames = (segment) => {
+    if (!segment) return []
+    const noTrail = segment.replace(/\.\s*$/, '').trim()
+    if (!noTrail || /^none$/i.test(noTrail)) return []
+    return noTrail
+      .split(/\s*,\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s.endsWith('.') ? s.slice(0, -1).trim() : s))
+      .filter(Boolean)
+  }
+
+  return {
+    present: splitNames(presentStr),
+    absent: splitNames(absentSegment),
+    unstructured: '',
+  }
+}
+
+function openAttendancePopover(setPopover, e, payload) {
+  const rect = e.currentTarget.getBoundingClientRect()
+  const width = 256
+  let left = rect.left
+  if (left + width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - width - 12)
+  if (left < 12) left = 12
+  const top = rect.bottom + 8
+  const maxH = Math.min(320, window.innerHeight - top - 16)
+  setPopover((prev) => {
+    if (
+      prev &&
+      prev.title === payload.title &&
+      (payload.raw ? prev.raw === payload.raw : (prev.raw || '') === '')
+    ) {
+      return null
+    }
+    return { top, left, maxH, ...payload }
+  })
+}
+
+function MeetingAttendanceCell({ attendance }) {
+  const [popover, setPopover] = useState(null)
+
+  useEffect(() => {
+    if (!popover) return
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') setPopover(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [popover])
+
+  const parsed = useMemo(() => parseMeetingAttendance(attendance ?? ''), [attendance])
+  const { present, absent, unstructured } = parsed
+
+  if (!attendance || !String(attendance).trim()) {
+    return <span className="text-slate-400">—</span>
+  }
+
+  const cardBase =
+    'flex flex-1 min-w-[3.75rem] max-w-[4.75rem] flex-col rounded-md border px-1.5 py-1 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1'
+
+  const popoverLayer =
+    popover &&
+    createPortal(
+      <>
+        <div
+          className="fixed inset-0 z-[200] bg-transparent"
+          aria-hidden
+          onClick={() => setPopover(null)}
+        />
+        <div
+          role="dialog"
+          aria-label={popover.title}
+          className="fixed z-[210] w-64 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+          style={{ top: popover.top, left: popover.left, maxHeight: popover.maxH ?? 320 }}
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-600">{popover.title}</p>
+          </div>
+          <div className="max-h-56 overflow-y-auto p-3">
+            {popover.raw ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{popover.raw}</p>
+            ) : popover.items.length === 0 ? (
+              <p className="text-sm italic text-slate-500">None listed.</p>
+            ) : (
+              <ol className="list-none space-y-2 p-0 m-0">
+                {popover.items.map((name, i) => (
+                  <li
+                    key={`${i}-${name.slice(0, 24)}`}
+                    className="flex gap-2 text-sm text-slate-800"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] font-semibold text-slate-500">
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 leading-snug">{name}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      </>,
+      document.body
+    )
+
+  if (unstructured) {
+    return (
+      <>
+        <button
+          type="button"
+          className={`${cardBase} border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100`}
+          onClick={(e) =>
+            openAttendancePopover(setPopover, e, {
+              title: 'Attendance',
+              items: [],
+              raw: unstructured,
+            })
+          }
+        >
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-600 leading-tight">Details</span>
+          <span className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-slate-700 leading-none">
+            <Users className="h-3 w-3 shrink-0 opacity-70" />
+            View
+          </span>
+        </button>
+        {popoverLayer}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-stretch gap-1">
+        <button
+          type="button"
+          className={`${cardBase} border-emerald-200 bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100`}
+          onClick={(e) =>
+            openAttendancePopover(setPopover, e, {
+              title: 'Present',
+              items: present,
+              raw: '',
+            })
+          }
+        >
+          <span className="flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-800 leading-tight">
+            <UserCheck className="h-2.5 w-2.5 shrink-0" />
+            Present
+          </span>
+          <span className="mt-0.5 text-sm font-bold tabular-nums leading-none">{present.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`${cardBase} border-rose-200 bg-rose-50/90 text-rose-900 hover:bg-rose-100`}
+          onClick={(e) =>
+            openAttendancePopover(setPopover, e, {
+              title: 'Absent',
+              items: absent,
+              raw: '',
+            })
+          }
+        >
+          <span className="flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-800 leading-tight">
+            <UserX className="h-2.5 w-2.5 shrink-0" />
+            Absent
+          </span>
+          <span className="mt-0.5 text-sm font-bold tabular-nums leading-none">{absent.length}</span>
+        </button>
+      </div>
+      {popoverLayer}
+    </>
+  )
+}
+
 function UBAdminDashboard() {
   const [user, setUser] = useState(null)
   const [activeSection, setActiveSection] = useState('overview')
@@ -138,6 +330,7 @@ function UBAdminDashboard() {
   const [simulationMode, setSimulationMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [selectedDivision, setSelectedDivision] = useState('all')
+  const [showSystemLogs, setShowSystemLogs] = useState(false)
   // Staff Directory (all universities)
   const [staffList, setStaffList] = useState([])
   const [staffLoading, setStaffLoading] = useState(false)
@@ -713,12 +906,11 @@ function UBAdminDashboard() {
 
   const handleDeleteUniversity = async () => {
     if (!deleteModal) return
-    const { row, universityName, confirmText } = deleteModal
-    if ((confirmText || '').trim() !== universityName) return
+    const { row } = deleteModal
     setDeletingUniversityId(row.university_id)
     try {
       const { error } = await supabase.rpc('delete_university_cascade', {
-        university_id: row.university_id
+        target_uni_id: row.university_id
       })
       if (error) throw error
       showToast('University and all associated data deleted.', 'success')
@@ -957,13 +1149,18 @@ function UBAdminDashboard() {
                 </button>
               )}
             </div>
-            <p className="text-slate-500">
-              {activeSection === 'overview' 
-                ? 'Comprehensive analytics and governance oversight for all 27 universities' 
-                : activeSection === 'universities' ? 'Manage university accounts and focal persons' :
-                activeSection === 'accounts' ? 'Manage university accounts and access control' :
-                activeSection === 'staff' ? 'View and manage staff across all universities' :
-                activeSection === 'meetings' ? 'Monitor meetings and official reports' : 'Dashboard'}
+            <p className="text-slate-500 max-w-3xl">
+              {activeSection === 'overview'
+                ? 'Comprehensive analytics and governance oversight for all 27 universities'
+                : activeSection === 'universities'
+                  ? 'Manage university accounts and focal persons'
+                  : activeSection === 'accounts'
+                    ? 'University-centric view of accounts. Lock access or delete a university and all its data (with confirmation).'
+                    : activeSection === 'staff'
+                      ? 'Master list of employees across universities. Use for payroll verification and to assess academic strength (e.g. PhD-qualified faculty).'
+                      : activeSection === 'meetings'
+                        ? 'Monitor meetings and official reports. Governance timeline, document archive, and statutory compliance.'
+                        : 'Dashboard'}
             </p>
           </motion.div>
 
@@ -986,53 +1183,56 @@ function UBAdminDashboard() {
               {/* Analytics Content - Only show when data is loaded */}
               {!loading && (
                 <>
-              {/* Governance metric bar - Unis, Active Accounts, Expired Boards */}
-              <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              {/* Top summary strip */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
                       <University className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
                       <div className="text-slate-500 text-xs font-medium">Total Universities</div>
-                      <div className="text-2xl font-bold text-slate-900">{totalUniversities || universities.length}</div>
+                      <div className="text-2xl font-bold text-slate-900 leading-tight">{totalUniversities || universities.length}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                </div>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
                       <CheckCircle className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
                       <div className="text-slate-500 text-xs font-medium">Active Accounts</div>
-                      <div className="text-2xl font-bold text-slate-900">{simulationMode ? totalUniversities || universities.length : activeAccounts}</div>
+                      <div className="text-2xl font-bold text-slate-900 leading-tight">{simulationMode ? totalUniversities || universities.length : activeAccounts}</div>
                     </div>
                   </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center">
                       <AlertTriangle className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
                       <div className="text-slate-500 text-xs font-medium">Expired Boards</div>
-                      <div className="text-2xl font-bold text-slate-900">{totalExpiredBoards}</div>
+                      <div className="text-2xl font-bold text-slate-900 leading-tight">{totalExpiredBoards}</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Command Center Grid: Map (2/3) + Charts Sidebar (1/3) - items-stretch so right column fills height */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-0 items-stretch">
-                {/* Map - Takes 2/3 of screen */}
-                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-0">
+              {/* Hero row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-blue-600" />
-                      Campus Distribution Map
+                    <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                      Registered Universities by Region
                     </h3>
                   </div>
-                  
-                  {/* Division Filter - Regional Zoom */}
+
                   <div className="mb-4 flex flex-wrap gap-2">
                     <button
+                      type="button"
                       onClick={() => setSelectedDivision('all')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         selectedDivision === 'all'
@@ -1040,9 +1240,10 @@ function UBAdminDashboard() {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      All Divisions
+                      All regions
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedDivision('karachi')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         selectedDivision === 'karachi'
@@ -1053,6 +1254,7 @@ function UBAdminDashboard() {
                       Karachi
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedDivision('sukkur')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         selectedDivision === 'sukkur'
@@ -1063,6 +1265,7 @@ function UBAdminDashboard() {
                       Sukkur
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedDivision('hyderabad')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         selectedDivision === 'hyderabad'
@@ -1073,6 +1276,7 @@ function UBAdminDashboard() {
                       Hyderabad
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedDivision('larkana')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         selectedDivision === 'larkana'
@@ -1082,48 +1286,42 @@ function UBAdminDashboard() {
                     >
                       Larkana
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDivision('others')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        selectedDivision === 'others'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Other regions
+                    </button>
                   </div>
 
-                  <div className="h-[350px] rounded-lg overflow-hidden border border-slate-200 mb-3">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 flex-1 min-h-0">
                     {(mapData?.length ?? 0) > 0 ? (
-                      <SindhMockMap 
-                        data={mapData} 
-                        searchQuery={searchQuery} 
-                        simulationMode={presentationMode}
+                      <RegisteredUniversitiesByRegion
+                        data={mapData}
                         selectedDivision={selectedDivision}
+                        onSelectDivision={setSelectedDivision}
+                        searchQuery={searchQuery}
+                        simulationMode={presentationMode}
                       />
                     ) : (
-                      <div className="h-full flex items-center justify-center text-slate-400">
+                      <div className="h-[280px] flex items-center justify-center text-slate-400">
                         <div className="text-center">
-                          <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                          <p>No location data available</p>
+                          <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <p>No university data available</p>
                         </div>
                       </div>
                     )}
                   </div>
-                  
-                  {/* Governance Activity Feed - Directly under map */}
-                  <div className="mb-4">
-                    <GovernanceActivityFeed isPresentationMode={presentationMode} />
-                  </div>
-
-                  {/* Resource Comparison - Vertical layout; show in demo mode even without analytics data */}
-                  {(analyticsData.length > 0 || presentationMode) && (
-                    <div className="mb-0">
-                      <GovernanceCharts
-                        data={analyticsData}
-                        presentationMode={presentationMode}
-                        sections={['resources']}
-                        resourceLayout="vertical"
-                      />
-                    </div>
-                  )}
                 </div>
 
-                {/* Right sidebar: Top 5 Boards Compliance + Resource comparison insight card */}
                 <div className="lg:col-span-1 flex flex-col gap-6 min-h-0">
                   {analyticsData.length > 0 && (
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                       <GovernanceCharts
                         data={analyticsData}
                         presentationMode={presentationMode}
@@ -1131,14 +1329,35 @@ function UBAdminDashboard() {
                       />
                     </div>
                   )}
-                  {/* Resource comparison insight card: fills remaining height with insights for all 5 universities */}
-                  {(analyticsData.length > 0 || presentationMode) && (() => {
+                </div>
+              </div>
+
+              {/* Analysis row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                  {(analyticsData.length > 0 || presentationMode) ? (
+                    <GovernanceCharts
+                      data={analyticsData}
+                      presentationMode={presentationMode}
+                      sections={['resources']}
+                      resourceLayout="horizontal"
+                    />
+                  ) : (
+                    <div className="h-[220px] rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm">
+                      Resource comparison data will appear once analytics are available.
+                    </div>
+                  )}
+                </div>
+
+                <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                  <h3 className="text-base font-semibold text-slate-900 mb-3">Resource Comparison Insight</h3>
+                  {(() => {
                     let resourceData = analyticsData
                       .filter(u => u && u.total_staff !== undefined)
                       .sort((a, b) => (b.total_staff || 0) - (a.total_staff || 0))
                       .slice(0, 5)
                       .map(u => ({
-                        university: u.university_short_name || u.university_name?.substring(0, 15) || 'Unknown',
+                        university: u.university_short_name || u.university_name?.substring(0, 20) || 'Unknown',
                         staff: u.total_staff || 0,
                         faculties: u.total_faculties || 0
                       }))
@@ -1155,114 +1374,68 @@ function UBAdminDashboard() {
                       ...item,
                       insight: getResourceInsightForItem(item)
                     }))
-                    return (
-                      <div className="flex-1 flex flex-col min-h-0 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex-shrink-0 p-5 border-b border-slate-100">
-                          <h3 className="text-base font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-purple-600" />
-                            Resource comparison insight
-                          </h3>
-                          <p className="text-sm text-slate-600 leading-relaxed">
-                            The chart compares staff and faculty counts per university. Hover a row in the chart for quick details. Below are ratio and recommendations for each of the top 5 universities by staff count.
-                          </p>
-                        </div>
-                        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
-                          {insightsList.length > 0 ? (
-                            insightsList.map((item, i) => (
-                              <div key={i} className="pb-5 border-b border-slate-100 last:border-0 last:pb-0">
-                                <p className="font-semibold text-slate-800 text-sm mb-1.5">{item.university}</p>
-                                {item.insight.ratio && (
-                                  <p className="text-sm text-slate-700 mb-1.5">{item.insight.ratio}</p>
-                                )}
-                                <p className="text-sm text-slate-600 leading-relaxed">{item.insight.insight}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-slate-500 italic">
-                              Add staff and faculty data to see ratio and recommendations here.
-                            </p>
-                          )}
-                          <div className="pt-4 mt-2 border-t border-slate-100">
-                            <p className="text-sm text-slate-500 leading-relaxed">
-                              <strong>How to read:</strong> Staff-per-faculty ratio helps compare institutional capacity. Higher ratios may indicate workload or governance gaps; lower ratios suggest room for staff growth.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </div>
-              </div>
 
-              {/* Recent Universities with Analytics - Filtered by Division */}
-              <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-0">
-                <h3 className="text-xl font-semibold text-slate-900 mb-4">University Status Overview</h3>
-                <div className="space-y-3">
-                  {(() => {
-                    // Filter universities by division
-                    const filterByDivision = (uni) => {
-                      if (selectedDivision === 'all') return true
-                      const name = (uni.university_name || uni.name || '').toLowerCase()
-                      if (selectedDivision === 'karachi') return name.includes('karachi')
-                      if (selectedDivision === 'sukkur') return name.includes('sukkur') || name.includes('iba')
-                      if (selectedDivision === 'hyderabad') return name.includes('hyderabad')
-                      if (selectedDivision === 'larkana') return name.includes('larkana')
-                      return true
+                    if (!insightsList.length) {
+                      return (
+                        <div className="h-[220px] rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm text-center px-4">
+                          Insights will appear here after resource metrics are available.
+                        </div>
+                      )
                     }
 
-                    const filteredData = analyticsData.length > 0 
-                      ? analyticsData.filter(filterByDivision)
-                      : universities.filter(filterByDivision)
-
-                    return filteredData.length > 0 ? (
-                      filteredData.slice(0, 10).map((uni) => {
-                        const status = analyticsData.length > 0 
-                          ? (uni.setup_status || (uni.hasFocalPerson ? 'Active' : 'Setup Pending'))
-                          : (uni.hasFocalPerson ? 'Active' : 'Setup Pending')
-                        const isPending = status === 'Setup Pending'
-                        const uniName = analyticsData.length > 0 ? (uni.university_name || 'Unknown') : uni.name
-                        const uniId = analyticsData.length > 0 ? (uni.university_id || uni.id) : uni.id
-                        
-                        return (
-                          <div key={uniId} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <div className="text-slate-900 font-medium">{uniName}</div>
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  status === 'Active'
-                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                    : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                                }`}>
-                                  {status}
-                                </span>
-                              </div>
-                              <div className="text-sm text-slate-500 mt-1">
-                                {uni.focalPersonEmail || 'No focal person assigned'}
-                              </div>
-                            </div>
-                            {isPending && (
-                              <button
-                                onClick={() => handleSendReminder(uniId, uni.focalPersonEmail || '')}
-                                className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-md hover:shadow-lg"
-                                disabled={!uni.focalPersonEmail}
-                              >
-                                <Send className="w-4 h-4" />
-                                <span>Send Reminder</span>
-                              </button>
+                    return (
+                      <div className="space-y-3">
+                        {insightsList.map((item, i) => (
+                          <div key={i} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-sm font-semibold text-slate-900">{item.university}</p>
+                            {item.insight.ratio && (
+                              <p className="text-xs text-slate-700 mt-1">{item.insight.ratio}</p>
                             )}
+                            <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.insight.insight}</p>
                           </div>
-                        )
-                      })
-                    ) : (
-                      <div className="text-slate-400 text-center py-8">
-                        {selectedDivision !== 'all' 
-                          ? `No universities found in ${selectedDivision.charAt(0).toUpperCase() + selectedDivision.slice(1)} division`
-                          : 'No universities yet'}
+                        ))}
                       </div>
                     )
                   })()}
                 </div>
               </div>
+
+              {/* Bottom system logs (collapsible) */}
+              <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSystemLogs((v) => !v)}
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                  <div className="text-left">
+                    <h3 className="text-base font-semibold text-slate-900">System Logs</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Full activity timeline for governance events</p>
+                  </div>
+                  {showSystemLogs ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                </button>
+                <AnimatePresence initial={false}>
+                  {showSystemLogs && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="border-t border-slate-200"
+                    >
+                      <div className="p-5">
+                        {(!analyticsData.length && !presentationMode) ? (
+                          <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 text-sm">
+                            No system logs available yet.
+                          </div>
+                        ) : (
+                          <GovernanceActivityFeed isPresentationMode={presentationMode} showTitle={false} />
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
                 </>
               )}
             </motion.div>
@@ -1416,11 +1589,6 @@ function UBAdminDashboard() {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-              <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-1">University Accounts</h3>
-                <p className="text-slate-500 text-sm mb-4">
-                  University-centric view of accounts. Lock access or delete a university and all its data (with confirmation).
-                </p>
                 <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                   {!accountsIsDemo && accountsLoading && accountsList.length === 0 ? (
                     <div className="p-12 text-center text-slate-500">
@@ -1435,38 +1603,66 @@ function UBAdminDashboard() {
                     <table className="w-full text-left">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-medium">
-                          <th className="px-4 py-3">University name</th>
-                          <th className="px-4 py-3">Focal person</th>
-                          <th className="px-4 py-3">Setup complete</th>
-                          <th className="px-4 py-3">Locked</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-4">University name</th>
+                          <th className="px-4 py-4">Focal person</th>
+                          <th className="px-4 py-4">Setup complete</th>
+                          <th className="px-4 py-4">Locked</th>
+                          <th className="px-4 py-4 w-[1%] whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {accountsDisplayList.map((acc) => (
-                          <tr key={acc.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-900 font-medium">{acc.universities?.name || '—'}</td>
-                            <td className="px-4 py-3 text-slate-700">{acc.full_name || acc.email || '—'}</td>
-                            <td className="px-4 py-3 text-slate-600">{acc.is_setup_complete ? 'Yes' : 'No'}</td>
-                            <td className="px-4 py-3 text-slate-600">{acc.is_locked ? 'Yes' : 'No'}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-2">
+                          <tr key={acc.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-5 text-slate-900 font-medium">{acc.universities?.name || '—'}</td>
+                            <td className="px-4 py-5 text-slate-700">{acc.full_name || acc.email || '—'}</td>
+                            <td className="px-4 py-5">
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                  acc.is_setup_complete
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : 'border-slate-200 bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {acc.is_setup_complete ? 'Complete' : 'Incomplete'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-5">
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                  acc.is_locked
+                                    ? 'border-rose-200 bg-rose-50 text-rose-800'
+                                    : 'border-slate-200 bg-slate-50 text-slate-700'
+                                }`}
+                              >
+                                {acc.is_locked ? 'Locked' : 'Unlocked'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-5">
+                              <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
+                                  title={acc.is_locked ? 'Unlock account' : 'Lock account'}
+                                  aria-label={acc.is_locked ? 'Unlock account' : 'Lock account'}
                                   onClick={() => accountsIsDemo ? showToast('Presentation mode – no changes saved.', 'success') : handleLockAccount(acc)}
                                   disabled={!accountsIsDemo && lockingAccountId === acc.id}
-                                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 disabled:opacity-50 flex items-center gap-1"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 disabled:pointer-events-none"
                                 >
-                                  {!accountsIsDemo && lockingAccountId === acc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                                  {acc.is_locked ? 'Unlock' : 'Lock'}
+                                  {!accountsIsDemo && lockingAccountId === acc.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : acc.is_locked ? (
+                                    <Unlock className="w-4 h-4" />
+                                  ) : (
+                                    <Lock className="w-4 h-4" />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
+                                  title="Delete university"
+                                  aria-label="Delete university"
                                   onClick={() => accountsIsDemo ? showToast('Presentation mode – delete disabled.', 'success') : openDeleteModal(acc)}
-                                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 flex items-center gap-1 disabled:opacity-60"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
                                 >
-                                  <Trash2 className="w-3 h-3" />
-                                  Delete
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1476,7 +1672,6 @@ function UBAdminDashboard() {
                     </table>
                   )}
                 </div>
-              </div>
             </motion.div>
           )}
 
@@ -1488,11 +1683,6 @@ function UBAdminDashboard() {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-              <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-1">Staff Directory</h3>
-                <p className="text-slate-500 text-sm mb-4">
-                  Master list of employees across universities. Use for payroll verification and to assess academic strength (e.g. PhD-qualified faculty).
-                </p>
                 <DataTable
                   columns={[
                     { key: 'full_name', label: 'Name', render: (row) => row.full_name || '—' },
@@ -1582,7 +1772,6 @@ function UBAdminDashboard() {
                   }
                   pageSize={25}
                 />
-              </div>
             </motion.div>
           )}
 
@@ -1594,11 +1783,6 @@ function UBAdminDashboard() {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-              <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-1">Meetings & Reports</h3>
-                <p className="text-slate-500 text-sm mb-4">
-                  Governance timeline and document archive. Ensures statutory meeting compliance and institutional memory.
-                </p>
                 <DataTable
                   columns={[
                     {
@@ -1614,7 +1798,11 @@ function UBAdminDashboard() {
                           'Finance Committee': 'bg-slate-100 text-slate-700 border-slate-300'
                         }
                         const c = colors[row.body_type] || 'bg-slate-100 text-slate-700 border-slate-300'
-                        return <span className={`px-2 py-0.5 rounded border text-xs font-medium ${c}`}>{row.body_type || '—'}</span>
+                        return (
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${c}`}>
+                            {row.body_type || '—'}
+                          </span>
+                        )
                       }
                     },
                     {
@@ -1630,7 +1818,7 @@ function UBAdminDashboard() {
                     {
                       key: 'attendance',
                       label: 'Attendance',
-                      render: (row) => row.attendance ?? '—'
+                      render: (row) => <MeetingAttendanceCell attendance={row.attendance} />,
                     },
                     {
                       key: 'decisions_summary',
@@ -1646,11 +1834,12 @@ function UBAdminDashboard() {
                           </span>
                           <button
                             type="button"
+                            title="View full decisions"
+                            aria-label="View full decisions"
                             onClick={() => setDecisionViewMeeting(row)}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            View
+                            <Eye className="w-4 h-4" />
                           </button>
                         </div>
                       )
@@ -1659,20 +1848,46 @@ function UBAdminDashboard() {
                       key: 'documents',
                       label: 'Documents',
                       render: (row) => (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
                           {row.notification_url ? (
-                            <a href={row.notification_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                              <FileText className="w-3.5 h-3.5" /> Notification
+                            <a
+                              href={row.notification_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open notification"
+                              aria-label="Open notification document"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+                            >
+                              <FileText className="w-4 h-4" />
                             </a>
                           ) : (
-                            <span className="text-slate-400 text-xs">—</span>
+                            <span
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300"
+                              title="No notification"
+                              aria-label="No notification document"
+                            >
+                              <FileText className="w-4 h-4" aria-hidden />
+                            </span>
                           )}
                           {row.minutes_url ? (
-                            <a href={row.minutes_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline">
-                              <Download className="w-3.5 h-3.5" /> Minutes
+                            <a
+                              href={row.minutes_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open minutes"
+                              aria-label="Open meeting minutes"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                            >
+                              <Download className="w-4 h-4" />
                             </a>
                           ) : (
-                            <span className="text-slate-400 text-xs">—</span>
+                            <span
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300"
+                              title="No minutes"
+                              aria-label="No meeting minutes"
+                            >
+                              <Download className="w-4 h-4" aria-hidden />
+                            </span>
                           )}
                         </div>
                       )
@@ -1680,11 +1895,20 @@ function UBAdminDashboard() {
                     {
                       key: 'status',
                       label: 'Status',
-                      render: (row) => (
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.status === 'Official' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {row.status || 'Draft'}
-                        </span>
-                      )
+                      render: (row) => {
+                        const official = row.status === 'Official'
+                        return (
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                              official
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                : 'border-amber-200 bg-amber-50 text-amber-800'
+                            }`}
+                          >
+                            {row.status || 'Draft'}
+                          </span>
+                        )
+                      }
                     }
                   ]}
                   data={meetingsDisplayList}
@@ -1728,7 +1952,6 @@ function UBAdminDashboard() {
                   }
                   pageSize={25}
                 />
-              </div>
             </motion.div>
           )}
           </>
@@ -1806,29 +2029,14 @@ function UBAdminDashboard() {
               className="bg-white rounded-xl shadow-xl border-2 border-red-200 max-w-md w-full overflow-hidden"
             >
               <div className="bg-red-50 border-b border-red-200 px-6 py-4">
-                <h3 className="text-lg font-semibold text-red-800">Delete University</h3>
+                <h3 className="text-lg font-semibold text-red-800">Confirm Deletion</h3>
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-slate-700">
-                  Warning: This will permanently delete <strong>{deleteModal.universityName}</strong>
-                  {deleteModal.totalStaff != null
-                    ? ` and all its ${deleteModal.totalStaff} staff records.`
-                    : ' and all associated data.'}
+                  Are you sure you want to permanently delete <strong>{deleteModal.universityName}</strong> and all associated data?
                 </p>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    To confirm, type the name of the university below.
-                  </label>
-                  <input
-                    type="text"
-                    value={deleteModal.confirmText}
-                    onChange={(e) =>
-                      setDeleteModal((prev) => (prev ? { ...prev, confirmText: e.target.value } : null))
-                    }
-                    placeholder={deleteModal.universityName}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    disabled={!!deletingUniversityId}
-                  />
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  This action cannot be undone.
                 </div>
               </div>
               <div className="flex justify-end gap-2 px-6 py-4 bg-slate-50 border-t border-slate-200">
@@ -1843,9 +2051,7 @@ function UBAdminDashboard() {
                 <button
                   type="button"
                   onClick={handleDeleteUniversity}
-                  disabled={
-                    (deleteModal.confirmText || '').trim() !== deleteModal.universityName || !!deletingUniversityId
-                  }
+                  disabled={!!deletingUniversityId}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {deletingUniversityId ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

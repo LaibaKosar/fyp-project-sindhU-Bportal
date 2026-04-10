@@ -54,7 +54,7 @@ const PRESENTATION_LOGS = [
   }
 ]
 
-function GovernanceActivityFeed({ isPresentationMode = false }) {
+function GovernanceActivityFeed({ isPresentationMode = false, showTitle = true }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const previousModeRef = useRef(isPresentationMode)
@@ -115,10 +115,12 @@ function GovernanceActivityFeed({ isPresentationMode = false }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-      <h3 className="text-base font-semibold text-slate-900 mb-3 flex items-center gap-2">
-        <Clock className="w-4 h-4 text-blue-600" />
-        System Logs
-      </h3>
+      {showTitle && (
+        <h3 className="text-base font-semibold text-slate-900 mb-3 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-blue-600" />
+          System Logs
+        </h3>
+      )}
       
       <div className="space-y-2.5">
         {logs.length > 0 ? logs.map((log, index) => {

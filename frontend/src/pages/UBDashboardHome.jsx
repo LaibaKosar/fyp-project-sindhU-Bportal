@@ -20,7 +20,31 @@ const DEMO_LANDING_ANALYTICS = {
     { city: 'Khairpur', uni_count: 1 }
   ],
   gender_data: { total_male: 45200, total_female: 37800, total_enrollment: 83000 },
-  compliance_data: { total_unis: 11, compliant_unis: 3, compliant_percent: 27 },
+  compliance_data: {
+    total_unis: 11,
+    compliant_unis: 3,
+    compliant_percent: 27,
+    total_programs: 11,
+    covered_programs: 3,
+    missing_programs: 8
+  },
+  compliance_details: {
+    covered: [
+      { programId: 'p-101', programName: 'BS Computer Science', universityId: 'u-01', universityName: 'University of Karachi' },
+      { programId: 'p-102', programName: 'BE Electrical Engineering', universityId: 'u-03', universityName: 'NED University of Engineering' },
+      { programId: 'p-103', programName: 'BBA', universityId: 'u-05', universityName: 'Sukkur IBA University' }
+    ],
+    missing: [
+      { programId: 'p-104', programName: 'BS Artificial Intelligence', universityId: 'u-03', universityName: 'NED University of Engineering' },
+      { programId: 'p-105', programName: 'BS Mathematics', universityId: 'u-02', universityName: 'University of Sindh, Jamshoro' },
+      { programId: 'p-106', programName: 'BEd', universityId: 'u-07', universityName: 'Shah Abdul Latif University' },
+      { programId: 'p-107', programName: 'MBBS', universityId: 'u-06', universityName: 'Liaquat University of Medical' },
+      { programId: 'p-108', programName: 'BSc Agriculture', universityId: 'u-09', universityName: 'Sindh Agriculture University' },
+      { programId: 'p-109', programName: 'BS Physics', universityId: 'u-01', universityName: 'University of Karachi' },
+      { programId: 'p-110', programName: 'BS Sociology', universityId: 'u-08', universityName: 'DOW University of Health' },
+      { programId: 'p-111', programName: 'BS Economics', universityId: 'u-10', universityName: 'Benazir Bhutto Shaheed Univ' }
+    ]
+  },
   total_universities: 27,
   total_campuses: 32,
   total_students: 83000,
@@ -62,6 +86,7 @@ export default function UBDashboardHome({ user, showToast }) {
     city_distribution: null,
     gender_data: null,
     compliance_data: null,
+    compliance_details: null,
     total_universities: 0,
     total_campuses: 0,
     total_students: 0,
@@ -105,31 +130,79 @@ export default function UBDashboardHome({ user, showToast }) {
           supabase.from('ub_landing_analytics').select('city_distribution, gender_data, compliance_data').maybeSingle(),
           supabase.from('universities').select('id', { count: 'exact', head: true }),
           supabase.from('campuses').select('id', { count: 'exact', head: true }),
-          supabase.from('enrollment_reports').select('total_enrolled, university_id'),
+          supabase.from('enrollment_reports').select('total_enrolled, male_students, female_students, university_id'),
           supabase.from('ub_analytics_hub').select('university_id, expired_boards'),
           supabase.from('profiles').select('university_id').eq('role', 'UFP').not('university_id', 'is', null),
           supabase.from('staff').select('id', { count: 'exact', head: true }),
           supabase.from('enrollment_reports').select('total_enrolled, university_id'),
           supabase.from('enrollment_reports').select('total_enrolled, program_id, programs(name, faculties(name))'),
-          supabase.from('programs').select('id', { count: 'exact', head: true }),
+          supabase.from('programs').select('id, name, university_id'),
           supabase.from('universities').select('id, name')
         ])
+
+        console.log('Debug programsRes.error:', programsRes.error)
+        console.log('Debug programsRes.data length:', programsRes.data?.length)
+        console.log('Debug enrollmentWithFacultyRes.error:', enrollmentWithFacultyRes.error)
+        console.log('Debug enrollmentWithFacultyRes.data length:', enrollmentWithFacultyRes.data?.length)
+        console.log('Debug universitiesRes.error:', universitiesRes.error)
+        console.log('Debug universitiesRes.data length:', universitiesRes.data?.length)
 
         if (cancelled) return
 
         const row = analyticsRes.data || {}
+        console.log('Debug analytics row:', row)
         const enrollmentList = enrollmentRes.data || []
         const byUni = {}
         enrollmentList.forEach((r) => {
           const uid = r.university_id
           if (!uid) return
-          byUni[uid] = (byUni[uid] || 0) + (Number(r.total_enrolled) || 0)
+          const male = Number(r.male_students ?? r.maleStudents ?? 0) || 0
+          const female = Number(r.female_students ?? r.femaleStudents ?? 0) || 0
+          if (!byUni[uid]) {
+            byUni[uid] = {
+              universityId: uid,
+              value: 0,
+              maleStudents: 0,
+              femaleStudents: 0
+            }
+          }
+          byUni[uid].value += Number(r.total_enrolled) || 0
+          byUni[uid].maleStudents += male
+          byUni[uid].femaleStudents += female
         })
-        const topUniIds = Object.entries(byUni)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
         const uniMap = (universitiesRes.data || []).reduce((acc, u) => { acc[u.id] = u.name; return acc }, {})
-        const topUniversities = topUniIds.map(([id, value]) => ({ name: uniMap[id] || 'Unknown', value }))
+        const topUniversities = Object.values(byUni)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 10)
+          .map((item, index) => {
+            const total = Number(item.value) || 0
+            const maleStudents = Number(item.maleStudents) || 0
+            const femaleStudents = Number(item.femaleStudents) || 0
+            const malePercent = total > 0 ? Math.round((maleStudents / total) * 100) : 0
+            const femalePercent = total > 0 ? Math.round((femaleStudents / total) * 100) : 0
+            const fullName = uniMap[item.universityId] || 'Unknown'
+
+            return {
+              universityId: item.universityId,
+              name: fullName,
+              fullName,
+              value: total,
+              maleStudents,
+              femaleStudents,
+              malePercent,
+              femalePercent,
+              rank: index + 1
+            }
+          })
+        console.log(
+          'Debug topUniversities first 3:',
+          topUniversities.slice(0, 3).map((u) => ({
+            universityName: u.fullName,
+            totalStudents: u.value,
+            maleStudents: u.maleStudents,
+            femaleStudents: u.femaleStudents
+          }))
+        )
 
         const totalStudentsFromReports = enrollmentList.reduce((s, r) => s + (Number(r.total_enrolled) || 0), 0)
         const enrollmentWithFaculty = enrollmentWithFacultyRes.data || []
@@ -161,18 +234,54 @@ export default function UBDashboardHome({ user, showToast }) {
         const expiredBoards = (hubRes.data || []).reduce((s, u) => s + (Number(u.expired_boards) || 0), 0)
         const activeAccountIds = new Set((profilesRes.data || []).map((p) => p.university_id).filter(Boolean))
 
-        const totalPrograms = typeof programsRes.count === 'number'
-          ? programsRes.count
-          : (programsRes.data || []).length
-        const programIdsInReports = new Set((enrollmentWithFacultyRes.data || []).map((r) => r.program_id).filter(Boolean))
-        const programsWithReports = programIdsInReports.size
-        console.log('Compliance Check:', totalPrograms, programsWithReports, 'reports rows:', (enrollmentWithFacultyRes.data || []).length)
-        const compliancePercent = 27
+        const allPrograms = programsRes.data || []
+        const coveredProgramIds = new Set((enrollmentWithFacultyRes.data || []).map((r) => r.program_id).filter(Boolean))
+        const covered = []
+        const missing = []
+
+        allPrograms.forEach((program) => {
+          const programId = program.id
+          const details = {
+            programId,
+            programName: program.name || 'Unknown Program',
+            universityId: program.university_id || null,
+            universityName: uniMap[program.university_id] || 'Unknown University'
+          }
+          if (coveredProgramIds.has(programId)) {
+            covered.push(details)
+          } else {
+            missing.push(details)
+          }
+        })
+
+        const totalPrograms = allPrograms.length
+        const coveredPrograms = covered.length
+        const missingPrograms = missing.length
+        const compliancePercent = totalPrograms > 0
+          ? Math.round((coveredPrograms / totalPrograms) * 100)
+          : 0
+
+        console.log('Compliance totals:', {
+          totalPrograms,
+          coveredPrograms,
+          missingPrograms
+        })
+        console.log('Compliance first 3 missing records:', missing.slice(0, 3))
+
         const compliance_data = {
           total_unis: totalPrograms,
-          compliant_unis: programsWithReports,
-          compliant_percent: compliancePercent
+          compliant_unis: coveredPrograms,
+          compliant_percent: compliancePercent,
+          total_programs: totalPrograms,
+          covered_programs: coveredPrograms,
+          missing_programs: missingPrograms
         }
+        const compliance_details = { covered, missing }
+        console.log('Debug final compliance_data:', compliance_data)
+        console.log('Debug final compliance_details counts:', {
+          covered: compliance_details.covered.length,
+          missing: compliance_details.missing.length
+        })
 
         // Regional parity: enrollment by city (from city_distribution + total enrollment proportionally)
         const cityDist = row.city_distribution && Array.isArray(row.city_distribution) ? row.city_distribution : []
@@ -191,6 +300,7 @@ export default function UBDashboardHome({ user, showToast }) {
           city_distribution: row.city_distribution ?? null,
           gender_data: row.gender_data ?? null,
           compliance_data,
+          compliance_details,
           total_universities: unisRes.count ?? 0,
           total_campuses: campusesRes.count ?? 0,
           total_students: (studentsRes.data || []).reduce((sum, r) => sum + (Number(r.total_enrolled) || 0), 0),
@@ -204,7 +314,7 @@ export default function UBDashboardHome({ user, showToast }) {
       } catch (err) {
         if (!cancelled) {
           console.error('Error loading dashboard data:', err)
-          setLandingAnalytics(prev => ({ ...prev, city_distribution: null, gender_data: null, compliance_data: null }))
+          setLandingAnalytics(prev => ({ ...prev, city_distribution: null, gender_data: null, compliance_data: null, compliance_details: null }))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -356,7 +466,15 @@ export default function UBDashboardHome({ user, showToast }) {
               <LandingCharts
                 cityDistribution={data.city_distribution}
                 genderData={data.gender_data}
-                complianceData={data.compliance_data ?? { total_unis: 0, compliant_unis: 0, compliant_percent: 0 }}
+                complianceData={data.compliance_data ?? {
+                  total_unis: 0,
+                  compliant_unis: 0,
+                  compliant_percent: 0,
+                  total_programs: 0,
+                  covered_programs: 0,
+                  missing_programs: 0
+                }}
+                complianceDetails={data.compliance_details}
                 topUniversities={data.top_universities}
                 enrollmentByFacultyType={data.enrollment_by_faculty_type}
                 regionalParity={data.regional_parity}

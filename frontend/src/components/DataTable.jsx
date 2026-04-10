@@ -68,7 +68,7 @@ function DataTable({
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap"
+                      className="px-4 py-4 font-semibold text-slate-700 whitespace-nowrap"
                     >
                       {col.label}
                     </th>
@@ -82,7 +82,7 @@ function DataTable({
                     className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
                   >
                     {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3 text-slate-700">
+                      <td key={col.key} className="px-4 py-5 align-middle text-slate-700">
                         {col.render ? col.render(row) : (row[col.key] ?? '—')}
                       </td>
                     ))}
