@@ -57,7 +57,7 @@ A **full-stack administrative engine** that combines **role-based dashboards**, 
 ---
 
 ## 👤 Project Information
-- **Developer:** Laiba Kosar
+- **Group Members:** Laiba Kosar,  Saifa Shaikh , Mir Zaib
 - **Academic Institution:** [Sukkur IBA University]
 - **Supervisor:** Sir Ghulam Mujtaba Shaikh
 - **Year:** 2026
