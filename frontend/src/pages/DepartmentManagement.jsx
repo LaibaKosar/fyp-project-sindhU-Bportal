@@ -18,6 +18,7 @@ import {
   MapPin
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 const DEPARTMENT_MAPPING = {
   'Faculty of Arts & Social Sciences': ['Department of Economics', 'Department of Psychology', 'Department of International Relations', 'Department of Political Science', 'Department of Sociology', 'Department of Criminology', 'Department of Media & Communication Studies', 'Department of History', 'Department of Social Work', 'Department of Gender Studies', 'Department of Fine Arts'],
@@ -177,16 +178,23 @@ function DepartmentManagement() {
 
   // Auto-generate code when department name changes
   useEffect(() => {
+    const noPresetList = facultyId && availableDepartments.length === 0
+    if (noPresetList) {
+      if (customDepartmentName.trim()) {
+        setDepartmentCode(generateDepartmentCode(customDepartmentName))
+      } else {
+        setDepartmentCode('')
+      }
+      return
+    }
     if (departmentName && departmentName !== 'Other') {
-      const code = generateDepartmentCode(departmentName)
-      setDepartmentCode(code)
+      setDepartmentCode(generateDepartmentCode(departmentName))
     } else if (departmentName === 'Other' && customDepartmentName) {
-      const code = generateDepartmentCode(customDepartmentName)
-      setDepartmentCode(code)
+      setDepartmentCode(generateDepartmentCode(customDepartmentName))
     } else {
       setDepartmentCode('')
     }
-  }, [departmentName, customDepartmentName])
+  }, [facultyId, availableDepartments.length, departmentName, customDepartmentName])
 
   const loadUserData = async () => {
     try {
@@ -469,16 +477,27 @@ function DepartmentManagement() {
       return
     }
     
-    // Determine final department name
-    let finalDepartmentName = departmentName
-    if (departmentName === 'Other') {
-      if (!customDepartmentName) {
-        showToast('Please enter a custom department name', 'error')
+    const noPresetDepartments = availableDepartments.length === 0
+
+    let finalDepartmentName = ''
+    if (noPresetDepartments) {
+      const manual = customDepartmentName?.trim()
+      if (!manual) {
+        showToast('Please enter the department name', 'error')
         return
       }
-      finalDepartmentName = customDepartmentName
+      finalDepartmentName = manual
+    } else {
+      finalDepartmentName = departmentName
+      if (departmentName === 'Other') {
+        if (!customDepartmentName?.trim()) {
+          showToast('Please enter a custom department name', 'error')
+          return
+        }
+        finalDepartmentName = customDepartmentName.trim()
+      }
     }
-    
+
     if (!finalDepartmentName) {
       showToast('Please select or enter department name', 'error')
       return
@@ -549,7 +568,17 @@ function DepartmentManagement() {
       // Only proceed if insert was successful
       if (data) {
         console.log('Department saved successfully:', data)
-        
+
+        const facultyRow = faculties.find((f) => f.id === facultyId)
+        const facultyLabel = facultyRow ? `${facultyRow.name} (${facultyRow.code})` : 'faculty'
+        await recordSystemLog({
+          universityId: user.university_id,
+          actionType: 'DEPARTMENT_ADDED',
+          details: `Added department: ${finalDepartmentName} under ${facultyLabel}${campusName ? ` — ${campusName}` : ''}`,
+        })
+
+        const navigateFacultyId = facultyId
+
         // Clear form
         setDepartmentName('')
         setDepartmentCode('')
@@ -592,8 +621,8 @@ function DepartmentManagement() {
         showToast('Department added successfully!', 'success')
 
         // If opened from hierarchy, return to Faculty Detail
-        if (returnTo === 'faculty' && campusId && facultyId) {
-          navigate(`/ufp/campus/${campusId}/faculty/${facultyId}`)
+        if (returnTo === 'faculty' && campusId && navigateFacultyId) {
+          navigate(`/ufp/campus/${campusId}/faculty/${navigateFacultyId}`)
         }
       }
     } catch (error) {
@@ -945,8 +974,18 @@ function DepartmentManagement() {
                             Please select a faculty first
                           </div>
                         ) : availableDepartments.length === 0 ? (
-                          <div className="w-full px-4 py-2.5 bg-yellow-50 border border-yellow-300 rounded-lg text-yellow-800 text-sm">
-                            No standardized departments available for this faculty. Please use "Other" option.
+                          <div className="space-y-2">
+                            <p className="text-xs leading-relaxed text-slate-600">
+                              No preset departments for this faculty — enter the name below.
+                            </p>
+                            <input
+                              type="text"
+                              value={customDepartmentName}
+                              onChange={(e) => setCustomDepartmentName(e.target.value)}
+                              placeholder="e.g., Department of Islamic Studies"
+                              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                              required
+                            />
                           </div>
                         ) : (
                           <select

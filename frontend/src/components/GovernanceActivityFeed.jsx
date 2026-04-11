@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Clock, FileText, Users, UserCheck, Gavel, Building2, Info, CheckCircle, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { supabase } from '../lib/supabaseClient'
 
 // This maps the "action_type" from the DB to the correct Lucide icon
 const ICON_MAP = {
   FACULTY_ADDED: Users,
+  DEPARTMENT_ADDED: Building2,
   STAFF_UPDATED: UserCheck,
   BOARD_MEETING: FileText,
   SENATE_MEETING: Gavel,
@@ -16,6 +18,16 @@ const ICON_MAP = {
 }
 
 // Presentation Mode Mock Logs
+function formatLogDetails(details) {
+  if (details == null) return ''
+  if (typeof details === 'string') return details
+  try {
+    return JSON.stringify(details)
+  } catch {
+    return String(details)
+  }
+}
+
 const PRESENTATION_LOGS = [
   { 
     id: 'mock-log-1', 
@@ -91,15 +103,16 @@ function GovernanceActivityFeed({ isPresentationMode = false, showTitle = true }
     
     const fetchLogs = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/logs')
-        if (!response.ok) {
-          throw new Error('Failed to fetch logs')
-        }
-        const data = await response.json()
+        const { data, error } = await supabase
+          .from('system_logs')
+          .select('id, university_name, action_type, details, created_at')
+          .order('created_at', { ascending: false })
+          .limit(100)
+        if (error) throw error
         setLogs(data || [])
       } catch (error) {
-        console.error("Failed to fetch logs:", error)
-        setLogs([]) // Set empty array on error
+        console.error('Failed to fetch logs:', error)
+        setLogs([])
       } finally {
         setLoading(false)
       }
@@ -125,7 +138,14 @@ function GovernanceActivityFeed({ isPresentationMode = false, showTitle = true }
       <div className="space-y-2.5">
         {logs.length > 0 ? logs.map((log, index) => {
           const IconComponent = ICON_MAP[log.action_type] || ICON_MAP.DEFAULT
-          
+          const detailText = formatLogDetails(log.details)
+          const uniLabel =
+            log.university_name == null || log.university_name === ''
+              ? '—'
+              : typeof log.university_name === 'string'
+                ? log.university_name
+                : String(log.university_name)
+
           return (
             <motion.div
               key={log.id}
@@ -150,14 +170,16 @@ function GovernanceActivityFeed({ isPresentationMode = false, showTitle = true }
               
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-slate-900 font-medium leading-tight">
-                  <span className="font-semibold text-slate-700">{log.university_name}:</span>
+                  <span className="font-semibold text-slate-700">{uniLabel}:</span>
                   {' '}
-                  <span className="text-slate-600">{log.details}</span>
+                  <span className="text-slate-600">{detailText}</span>
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {/* Formats the DB timestamp for your defense */}
-                  {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(log.created_at).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
                 </p>
               </div>
             </motion.div>

@@ -16,6 +16,7 @@ import {
   Briefcase
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Academic Designations for Teaching Staff
 const ACADEMIC_DESIGNATIONS = [
@@ -69,6 +70,8 @@ const EMPLOYMENT_TYPES = [
   'Daily Wages'
 ]
 
+const GENDER_OPTIONS = ['Male', 'Female', 'Prefer not to say']
+
 function StaffManagement() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -104,6 +107,7 @@ function StaffManagement() {
   const [fullName, setFullName] = useState(fullNameParam || '')
   const [email, setEmail] = useState(emailParam || '')
   const [phone, setPhone] = useState(phoneParam || '')
+  const [gender, setGender] = useState('Prefer not to say')
   const [cnic, setCnic] = useState('')
   const [employmentType, setEmploymentType] = useState('Permanent')
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
@@ -417,6 +421,11 @@ function StaffManagement() {
       return
     }
 
+    if (!gender || !GENDER_OPTIONS.includes(gender)) {
+      showToast('Please select a valid gender option', 'error')
+      return
+    }
+
     if (staffType === 'Teaching' && (!facultyId || !departmentId || !academicDesignation)) {
       showToast('Please fill in all teaching staff fields', 'error')
       return
@@ -442,6 +451,7 @@ function StaffManagement() {
         full_name: fullName,
         email: email,
         phone: phone,
+        gender,
         cnic: cnic || null,
         employment_type: employmentType,
         profile_photo_url: publicUrl
@@ -467,21 +477,11 @@ function StaffManagement() {
 
       if (error) throw error
 
-      // --- LOGGING FIX: Corrected variables for real-time dashboard sync ---
-      try {
-        await fetch('http://localhost:5000/api/logs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uni_id: user.university_id,
-            uni_name: 'Sukkur IBA University',
-            action: 'STAFF_UPDATED',
-            details: `Registered ${staffType.toLowerCase()} staff: ${fullName}`
-          })
-        });
-      } catch (logErr) {
-        console.warn("Log server offline, but record saved to Supabase.");
-      }
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'STAFF_UPDATED',
+        details: `Registered ${staffType.toLowerCase()} staff: ${fullName}`,
+      })
 
       showToast('Staff member added successfully!', 'success')
       
@@ -489,6 +489,7 @@ function StaffManagement() {
       setFullName('')
       setEmail('')
       setPhone('')
+      setGender('Prefer not to say')
       setCnic('')
       setEmploymentType('Permanent')
       setProfilePhotoFile(null)
@@ -657,12 +658,19 @@ function StaffManagement() {
               className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[8px] border-t-blue-600 p-8 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative max-w-[380px] w-full flex flex-col items-center text-center"
             >
               {/* Staff Type Badge */}
-              <div className={`absolute top-4 left-4 px-3 py-1 text-xs font-semibold rounded-full z-10 ${
-                member.type === 'Teaching' 
-                  ? 'bg-emerald-100 text-emerald-700' 
-                  : 'bg-blue-100 text-blue-700'
-              }`}>
-                {member.type}
+              <div className="absolute top-4 left-4 flex flex-col gap-1.5 items-start z-10">
+                <span
+                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    member.type === 'Teaching'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {member.type}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                  {member.gender || '—'}
+                </span>
               </div>
 
               {/* Delete Button */}
@@ -898,6 +906,24 @@ function StaffManagement() {
                           required
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-900 mb-2">
+                        Gender <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                        required
+                      >
+                        {GENDER_OPTIONS.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

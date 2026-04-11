@@ -13,12 +13,13 @@ import {
   ArrowLeft,
   Users,
   ArrowRight,
-  AlertTriangle,
   BookOpen,
   UserCheck,
-  GraduationCap
+  GraduationCap,
+  Info,
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 const FACULTY_NAMES = [
   'Faculty of Arts & Social Sciences',
@@ -85,8 +86,6 @@ function FacultyManagement() {
   const [deanName, setDeanName] = useState('')
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [deanId, setDeanId] = useState(null)
-  const [deanExistsInStaff, setDeanExistsInStaff] = useState(false)
   const [deanPhotoFile, setDeanPhotoFile] = useState(null)
   const [deanPhotoPreview, setDeanPhotoPreview] = useState(null)
   const [deanAppointmentLetterFile, setDeanAppointmentLetterFile] = useState(null)
@@ -295,82 +294,6 @@ function FacultyManagement() {
     }
   }
 
-  const checkDeanInStaff = async () => {
-    if (!deanName || !user?.university_id) {
-      setDeanExistsInStaff(false)
-      setDeanId(null)
-      return
-    }
-
-    try {
-      // Check if dean exists in staff table by name
-      const { data, error } = await supabase
-        .from('staff')
-        .select('id, full_name')
-        .eq('university_id', user.university_id)
-        .ilike('full_name', `%${deanName}%`)
-        .limit(1)
-
-      if (!error && data && data.length > 0) {
-        setDeanExistsInStaff(true)
-        setDeanId(data[0].id)
-      } else {
-        setDeanExistsInStaff(false)
-        setDeanId(null)
-      }
-    } catch (error) {
-      console.error('Error checking dean in staff:', error)
-      setDeanExistsInStaff(false)
-      setDeanId(null)
-    }
-  }
-
-  const registerDeanAsStaff = () => {
-    if (!deanName) {
-      showToast('Please enter Dean name first', 'error')
-      return
-    }
-
-    if (!campusId) {
-      showToast('Campus ID is required to register staff', 'error')
-      return
-    }
-
-    // Build return path with current form state
-    const returnPath = `/ufp/faculties${campusId ? `?campusId=${campusId}` : ''}`
-    
-    // Redirect to staff management with dean name and return path
-    const params = new URLSearchParams({
-      campusId: campusId,
-      staffType: 'Teaching',
-      fullName: deanName,
-      returnPath: returnPath,
-      administrativeRole: 'Dean',
-      academicDesignation: 'Professor'
-    })
-    
-    // Also pass email and phone if available
-    if (email) params.set('email', email)
-    if (phoneNumber) params.set('phone', phoneNumber)
-    
-    navigate(`/ufp/staff?${params.toString()}`)
-  }
-
-  // Check if dean exists in staff when name changes
-  useEffect(() => {
-    if (!deanName || !user?.university_id) {
-      setDeanExistsInStaff(false)
-      setDeanId(null)
-      return
-    }
-
-    const timeoutId = setTimeout(() => {
-      checkDeanInStaff()
-    }, 500) // Debounce for 500ms
-
-    return () => clearTimeout(timeoutId)
-  }, [deanName, user?.university_id])
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -482,11 +405,6 @@ function FacultyManagement() {
         insertData.campus_id = campusId
       }
 
-      // If dean_id exists (from staff table), link it
-      if (deanId) {
-        insertData.dean_id = deanId
-      }
-
       const { data, error } = await supabase
         .from('faculties')
         .insert(insertData)
@@ -497,22 +415,12 @@ function FacultyManagement() {
         throw new Error('Failed to save faculty: ' + error.message)
       }
 
-      try {
-        console.log("LOGGING DEBUG: Attempting fetch to Port 5000...");
-        await fetch('http://localhost:5000/api/logs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uni_id: user?.university_id || '1',
-            uni_name: 'Sukkur IBA University',
-            action: 'FACULTY_ADDED',
-            details: `Registered new faculty: ${officialName}`
-          })
-        });
-        console.log("LOGGING DEBUG: Success!");
-      } catch (logErr) {
-        console.warn("Log server offline, but record saved to Supabase.");
-      }
+      const campusLabel = campusName ? ` (${campusName})` : ''
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'FACULTY_ADDED',
+        details: `Added faculty: ${officialName}${campusLabel}`,
+      })
 
       // Clear form
       setEmblemFile(null)
@@ -524,8 +432,6 @@ function FacultyManagement() {
       setDeanName('')
       setEmail('')
       setPhoneNumber('')
-      setDeanId(null)
-      setDeanExistsInStaff(false)
       setDeanPhotoFile(null)
       setDeanPhotoPreview(null)
       setDeanAppointmentLetterFile(null)
@@ -545,13 +451,6 @@ function FacultyManagement() {
       setShowForm(false)
 
       showToast('Faculty added successfully!', 'success')
-      
-      // Post-save reminder if dean is not registered
-      if (!deanId && deanName) {
-        setTimeout(() => {
-          showToast(`Faculty Created! Remember to add ${deanName} as a staff member to enable board management for this faculty.`, 'info')
-        }, 1500)
-      }
     } catch (error) {
       console.error('Error saving faculty:', error)
       showToast(error.message || 'Error saving faculty', 'error')
@@ -736,28 +635,6 @@ function FacultyManagement() {
                     )}
                     <p className="text-base text-slate-700 text-center mt-2 font-semibold">
                       Dean: {faculty.dean_name || '—'}
-                      {faculty.dean_name && !faculty.dean_id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const params = new URLSearchParams({
-                              campusId: faculty.campus_id || campusId || '',
-                              staffType: 'Teaching',
-                              fullName: faculty.dean_name,
-                              returnPath: `/ufp/faculties${campusId ? `?campusId=${campusId}` : ''}`,
-                              administrativeRole: 'Dean',
-                              academicDesignation: 'Professor'
-                            })
-                            if (faculty.dean_email) params.set('email', faculty.dean_email)
-                            if (faculty.dean_phone) params.set('phone', faculty.dean_phone)
-                            navigate(`/ufp/staff?${params.toString()}`)
-                          }}
-                          className="inline-block ml-1 align-middle"
-                          title="This person is not registered as a staff member."
-                        >
-                          <AlertTriangle className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
-                        </button>
-                      )}
                     </p>
                   </div>
 
@@ -1023,41 +900,17 @@ function FacultyManagement() {
                 <label className="block text-sm font-medium text-slate-900 mb-2">
                   Dean / Focal Person Name <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={deanName}
-                    onChange={(e) => setDeanName(e.target.value)}
-                    placeholder="Enter dean's full name"
-                    className="flex-1 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
-                    required
-                  />
-                  {deanName && !deanExistsInStaff && campusId && (
-                    <button
-                      type="button"
-                      onClick={registerDeanAsStaff}
-                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all text-sm whitespace-nowrap flex items-center gap-2"
-                      title="Register this dean as a staff member to link with Board Management"
-                    >
-                      <span>Register as Staff</span>
-                    </button>
-                  )}
-                </div>
-                {deanName && deanExistsInStaff && (
-                  <p className="mt-1 text-xs text-green-600 font-medium">
-                    ✓ Dean found in Staff records. Will be linked automatically.
-                  </p>
-                )}
-                {deanName && !deanExistsInStaff && campusId && (
-                  <p className="mt-1 text-xs text-amber-600">
-                    Note: This Dean is not yet registered in the staff system. You can save the faculty now, but you will need to register them later to manage boards.
-                  </p>
-                )}
-                {deanName && !campusId && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    Note: Staff registration requires a campus selection.
-                  </p>
-                )}
+                <input
+                  type="text"
+                  value={deanName}
+                  onChange={(e) => setDeanName(e.target.value)}
+                  placeholder="Enter dean's full name"
+                  className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                  required
+                />
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                  Kindly register the dean as a staff member as well when possible — it keeps records aligned and helps with board management workflows.
+                </p>
               </div>
 
               {/* Email */}
@@ -1175,7 +1028,7 @@ function FacultyManagement() {
               {toast.type === 'success' ? (
                 <CheckCircle className="w-5 h-5 text-emerald-600" />
               ) : toast.type === 'info' ? (
-                <AlertTriangle className="w-5 h-5 text-blue-600" />
+                <Info className="w-5 h-5 text-blue-600" />
               ) : (
                 <X className="w-5 h-5 text-red-600" />
               )}

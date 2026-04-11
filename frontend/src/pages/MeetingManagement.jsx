@@ -21,6 +21,7 @@ import {
   FileCheck
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Body Types
 const BODY_TYPES = [
@@ -249,22 +250,11 @@ function MeetingManagement() {
 
       if (error) throw error
 
-      try {
-        console.log("LOGGING DEBUG: Attempting fetch to Port 5000...");
-        await fetch('http://localhost:5000/api/logs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uni_id: user?.university_id || '1',
-            uni_name: 'Sukkur IBA University',
-            action: 'BOARD_MEETING',
-            details: `Recorded ${bodyType} meeting: ${subject}`
-          })
-        });
-        console.log("LOGGING DEBUG: Success!");
-      } catch (logErr) {
-        console.warn("Log server offline, but record saved to Supabase.");
-      }
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'BOARD_MEETING',
+        details: `Recorded ${bodyType} meeting: ${subject}`,
+      })
 
       showToast('Meeting record added successfully!', 'success')
       

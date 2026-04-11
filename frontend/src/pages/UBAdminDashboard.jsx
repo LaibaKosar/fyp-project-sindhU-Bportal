@@ -6,8 +6,9 @@ import { UB_ADMIN_FOCAL_CREATE_FLAG } from '../lib/ubAdminSessionFlags'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, ChevronDown, ChevronUp, Lock, Unlock, UserCheck, UserX, Calendar, ClipboardList, Landmark } from 'lucide-react'
 import RegisteredUniversitiesByRegion from '../components/RegisteredUniversitiesByRegion'
-import GovernanceCharts, { getResourceInsightForItem } from '../components/GovernanceCharts'
+import GovernanceCharts from '../components/GovernanceCharts'
 import GovernanceActivityFeed from '../components/GovernanceActivityFeed'
+import SectionErrorBoundary from '../components/SectionErrorBoundary'
 import DataTable from '../components/DataTable'
 import UBDashboardHome from './UBDashboardHome'
 
@@ -76,6 +77,7 @@ const _teachingDesignations = ['Professor', 'Associate Professor', 'Assistant Pr
 const _nonTeachingDesignations = ['HR Manager', 'Registrar', 'Auditor', 'Estate Manager', 'Lab Engineer', 'Admin Officer', 'IT Manager', 'Finance Officer']
 const _faculties = ['Computer Science & IT', 'Engineering', 'Education', 'Business Administration', 'Sciences', 'Arts', 'Law', 'Medicine']
 const _depts = ['Computer Science', 'Software Engineering', 'Electrical Engineering', 'Education', 'Management', 'Mathematics', 'Physics', 'English', 'Administration']
+const _genders = ['Male', 'Female', 'Prefer not to say']
 function buildDummyStaff() {
   const list = []
   const unis = DUMMY_STAFF_UNIVERSITIES
@@ -100,6 +102,7 @@ function buildDummyStaff() {
       university_id: uni.id,
       email: `staff${i + 1}@demo.edu.pk`,
       phone: `+92 300 ${String(1000000 + i).slice(1)}`,
+      gender: _genders[i % _genders.length],
       employment_type: contractTypes[i % 3],
     })
   }
@@ -320,7 +323,6 @@ function UBAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [totalUniversities, setTotalUniversities] = useState(0)
   const [activeAccounts, setActiveAccounts] = useState(0)
-  const [totalExpiredBoards, setTotalExpiredBoards] = useState(0)
   const [selectedUniversityId, setSelectedUniversityId] = useState('')
   const [focalPersonEmail, setFocalPersonEmail] = useState('')
   const [tempPassword, setTempPassword] = useState('')
@@ -331,6 +333,7 @@ function UBAdminDashboard() {
   const [simulationMode, setSimulationMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [selectedDivision, setSelectedDivision] = useState('all')
+  const [overviewRegionSearch, setOverviewRegionSearch] = useState('')
   const [showSystemLogs, setShowSystemLogs] = useState(false)
   // Staff Directory (all universities)
   const [staffList, setStaffList] = useState([])
@@ -468,27 +471,53 @@ function UBAdminDashboard() {
     if (isInitializing) return
     setIsInitializing(true)
 
+    const isPolicyOrForbidden = (err) => {
+      if (!err) return false
+      const msg = String(err.message || '')
+      const code = String(err.code || '')
+      return (
+        code === '42501' ||
+        /row-level security|RLS|permission denied|not authorized|403|401|PGRST/i.test(msg)
+      )
+    }
+
     try {
-      const { data: existingUnis } = await supabase
+      const { data: existingUnis, error: fetchError } = await supabase
         .from('universities')
         .select('name')
 
-      const existingNames = new Set(existingUnis?.map(u => u.name) || [])
-
-      const missing = UNIVERSITY_NAMES.filter(name => !existingNames.has(name))
-
-      if (missing.length > 0) {
-        const { error } = await supabase
-          .from('universities')
-          .insert(missing.map(name => ({ name })))
-
-        if (error) {
-          console.error('Error initializing universities:', error)
+      if (fetchError) {
+        if (isPolicyOrForbidden(fetchError)) {
+          console.warn(
+            'University seed check skipped (cannot read universities under current RLS). Dashboard still works if data exists.'
+          )
+        } else {
+          console.error('Error reading universities for initialization:', fetchError)
         }
-        setIsInitializing(false)
+        return
+      }
+
+      const existingNames = new Set(existingUnis?.map((u) => u.name) || [])
+      const missing = UNIVERSITY_NAMES.filter((name) => !existingNames.has(name))
+
+      if (missing.length === 0) return
+
+      const { error: insertError } = await supabase
+        .from('universities')
+        .insert(missing.map((name) => ({ name })))
+
+      if (insertError) {
+        if (isPolicyOrForbidden(insertError)) {
+          console.warn(
+            'University auto-seed skipped: your role cannot INSERT into universities (RLS). Seed universities in the Supabase SQL editor or add an admin insert policy.'
+          )
+        } else {
+          console.error('Error initializing universities:', insertError)
+        }
       }
     } catch (error) {
       console.error('Error in initializeUniversities:', error)
+    } finally {
       setIsInitializing(false)
     }
   }
@@ -788,7 +817,6 @@ function UBAdminDashboard() {
         setAnalyticsData(data)
         // Calculate stats (Active Accounts comes from universities/profiles in fetchUniversities)
         setTotalUniversities(data.length)
-        setTotalExpiredBoards(data.reduce((sum, u) => sum + (u.expired_boards || 0), 0))
       } else {
         setAnalyticsData([])
       }
@@ -970,6 +998,11 @@ function UBAdminDashboard() {
       }
     })
   }, [analyticsData, universities])
+
+  const setupPendingCount = useMemo(
+    () => universities.filter((u) => !u.hasFocalPerson).length,
+    [universities]
+  )
 
   const filteredStaff = useMemo(() => {
     let list = staffList || []
@@ -1185,6 +1218,10 @@ function UBAdminDashboard() {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
+              <SectionErrorBoundary
+                title="Governance Command Center could not be displayed."
+                logLabel="UBAdmin overview section"
+              >
               {/* Loading State for Analytics */}
               {loading && analyticsData.length === 0 && (
                 <div className="bg-white border border-slate-200 rounded-xl p-12 shadow-sm text-center">
@@ -1222,103 +1259,49 @@ function UBAdminDashboard() {
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center">
-                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-amber-700" />
                     </div>
                     <div>
-                      <div className="text-slate-500 text-xs font-medium">Expired Boards</div>
-                      <div className="text-2xl font-bold text-slate-900 leading-tight">{totalExpiredBoards}</div>
+                      <div className="text-slate-500 text-xs font-medium">Setup pending</div>
+                      <div className="text-2xl font-bold text-slate-900 leading-tight">
+                        {simulationMode ? 0 : setupPendingCount}
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">No focal account yet</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Hero row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-blue-600" />
-                      Registered Universities by Region
-                    </h3>
-                  </div>
+              {/* Region command center — full width */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col"
+              >
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                    Registered universities by region
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-xl">
+                    Geographic-style grouping from names only. Chart, filters, and directory are aligned in one panel.
+                  </p>
+                </div>
 
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('all')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'all'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      All regions
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('karachi')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'karachi'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Karachi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('sukkur')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'sukkur'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Sukkur
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('hyderabad')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'hyderabad'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Hyderabad
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('larkana')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'larkana'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Larkana
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDivision('others')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedDivision === 'others'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Other regions
-                    </button>
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 flex-1 min-h-0">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4 sm:p-5 flex-1 min-h-0">
+                  <SectionErrorBoundary
+                    title="Regional map and directory could not be rendered."
+                    logLabel="UBAdmin overview: RegisteredUniversitiesByRegion"
+                  >
                     {(mapData?.length ?? 0) > 0 ? (
                       <RegisteredUniversitiesByRegion
                         data={mapData}
                         selectedDivision={selectedDivision}
                         onSelectDivision={setSelectedDivision}
-                        searchQuery={searchQuery}
+                        searchQuery={overviewRegionSearch}
+                        onSearchChange={setOverviewRegionSearch}
                         simulationMode={presentationMode}
                       />
                     ) : (
@@ -1329,89 +1312,27 @@ function UBAdminDashboard() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </SectionErrorBoundary>
                 </div>
+              </motion.div>
 
-                <div className="lg:col-span-1 flex flex-col gap-6 min-h-0">
-                  {analyticsData.length > 0 && (
-                    <div className="flex-shrink-0 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <GovernanceCharts
-                        data={analyticsData}
-                        presentationMode={presentationMode}
-                        sections={['boards']}
-                      />
-                    </div>
-                  )}
+              {/* Readiness + resources (single grid: gender panel stacks under readiness on the left) */}
+              {(analyticsData.length > 0 || presentationMode) ? (
+                <SectionErrorBoundary
+                  title="Governance charts could not be rendered."
+                  logLabel="UBAdmin overview: GovernanceCharts"
+                >
+                  <GovernanceCharts
+                    data={mapData}
+                    presentationMode={presentationMode}
+                    sections={['boards', 'resources']}
+                  />
+                </SectionErrorBoundary>
+              ) : (
+                <div className="h-[220px] rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm bg-white shadow-sm">
+                  Resource comparison data will appear once analytics are available.
                 </div>
-              </div>
-
-              {/* Analysis row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                  {(analyticsData.length > 0 || presentationMode) ? (
-                    <GovernanceCharts
-                      data={analyticsData}
-                      presentationMode={presentationMode}
-                      sections={['resources']}
-                      resourceLayout="horizontal"
-                    />
-                  ) : (
-                    <div className="h-[220px] rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm">
-                      Resource comparison data will appear once analytics are available.
-                    </div>
-                  )}
-                </div>
-
-                <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                  <h3 className="text-base font-semibold text-slate-900 mb-3">Resource Comparison Insight</h3>
-                  {(() => {
-                    let resourceData = analyticsData
-                      .filter(u => u && u.total_staff !== undefined)
-                      .sort((a, b) => (b.total_staff || 0) - (a.total_staff || 0))
-                      .slice(0, 5)
-                      .map(u => ({
-                        university: u.university_short_name || u.university_name?.substring(0, 20) || 'Unknown',
-                        staff: u.total_staff || 0,
-                        faculties: u.total_faculties || 0
-                      }))
-                    if (presentationMode) {
-                      resourceData = [
-                        { university: 'Sukkur IBA Univ', staff: 21, faculties: 4 },
-                        { university: 'University of K', staff: 18, faculties: 3 },
-                        { university: 'Aror University', staff: 14, faculties: 3 },
-                        { university: 'Shaheed Benazir', staff: 12, faculties: 2 },
-                        { university: 'DOW University', staff: 10, faculties: 2 }
-                      ]
-                    }
-                    const insightsList = resourceData.map((item) => ({
-                      ...item,
-                      insight: getResourceInsightForItem(item)
-                    }))
-
-                    if (!insightsList.length) {
-                      return (
-                        <div className="h-[220px] rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm text-center px-4">
-                          Insights will appear here after resource metrics are available.
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        {insightsList.map((item, i) => (
-                          <div key={i} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                            <p className="text-sm font-semibold text-slate-900">{item.university}</p>
-                            {item.insight.ratio && (
-                              <p className="text-xs text-slate-700 mt-1">{item.insight.ratio}</p>
-                            )}
-                            <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.insight.insight}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-              </div>
+              )}
 
               {/* Bottom system logs (collapsible) */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -1436,13 +1357,12 @@ function UBAdminDashboard() {
                       className="border-t border-slate-200"
                     >
                       <div className="p-5">
-                        {(!analyticsData.length && !presentationMode) ? (
-                          <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 text-sm">
-                            No system logs available yet.
-                          </div>
-                        ) : (
+                        <SectionErrorBoundary
+                          title="System logs could not be loaded."
+                          logLabel="UBAdmin overview: GovernanceActivityFeed"
+                        >
                           <GovernanceActivityFeed isPresentationMode={presentationMode} showTitle={false} />
-                        )}
+                        </SectionErrorBoundary>
                       </div>
                     </motion.div>
                   )}
@@ -1451,6 +1371,7 @@ function UBAdminDashboard() {
 
                 </>
               )}
+              </SectionErrorBoundary>
             </motion.div>
           )}
 
@@ -1726,6 +1647,15 @@ function UBAdminDashboard() {
                 <DataTable
                   columns={[
                     { key: 'full_name', label: 'Name', render: (row) => row.full_name || '—' },
+                    {
+                      key: 'gender',
+                      label: 'Gender',
+                      render: (row) => (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                          {row.gender || '—'}
+                        </span>
+                      )
+                    },
                     {
                       key: 'designation',
                       label: 'Designation',
