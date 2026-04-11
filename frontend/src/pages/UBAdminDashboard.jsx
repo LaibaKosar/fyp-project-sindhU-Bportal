@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { UB_ADMIN_FOCAL_CREATE_FLAG } from '../lib/ubAdminSessionFlags'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, ChevronDown, ChevronUp, Lock, Unlock, UserCheck, UserX, Calendar, ClipboardList, Landmark } from 'lucide-react'
+import { LayoutDashboard, University, LogOut, Plus, RefreshCw, Key, X, CheckCircle, Search, User, Users, BarChart3, AlertTriangle, Mail, Send, Download, FileText, Loader2, Trash2, Eye, Lock, Unlock, UserCheck, UserX, Calendar, ClipboardList, Landmark, Activity } from 'lucide-react'
 import RegisteredUniversitiesByRegion from '../components/RegisteredUniversitiesByRegion'
 import GovernanceCharts from '../components/GovernanceCharts'
 import GovernanceActivityFeed from '../components/GovernanceActivityFeed'
@@ -334,7 +334,6 @@ function UBAdminDashboard() {
   const [presentationMode, setPresentationMode] = useState(false)
   const [selectedDivision, setSelectedDivision] = useState('all')
   const [overviewRegionSearch, setOverviewRegionSearch] = useState('')
-  const [showSystemLogs, setShowSystemLogs] = useState(false)
   // Staff Directory (all universities)
   const [staffList, setStaffList] = useState([])
   const [staffLoading, setStaffLoading] = useState(false)
@@ -1224,7 +1223,7 @@ function UBAdminDashboard() {
               >
               {/* Loading State for Analytics */}
               {loading && analyticsData.length === 0 && (
-                <div className="bg-white border border-slate-200 rounded-xl p-12 shadow-sm text-center">
+                <div className="rounded-xl border-2 border-blue-300/75 bg-white p-12 text-center shadow-md ring-1 ring-blue-200/50 transition-shadow duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/10">
                   <div className="text-blue-600 text-xl mb-2">Loading analytics data...</div>
                   <div className="text-slate-500 text-sm">Fetching data from ub_analytics_hub</div>
                 </div>
@@ -1235,7 +1234,7 @@ function UBAdminDashboard() {
                 <>
               {/* Top summary strip */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div className="rounded-xl border-2 border-blue-300/75 bg-white p-4 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-blue-400/90 hover:shadow-lg hover:shadow-blue-500/20">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
                       <University className="w-5 h-5 text-blue-600" />
@@ -1246,7 +1245,7 @@ function UBAdminDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div className="rounded-xl border-2 border-blue-300/75 bg-white p-4 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-blue-400/90 hover:shadow-lg hover:shadow-blue-500/20">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
                       <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -1257,7 +1256,7 @@ function UBAdminDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div className="rounded-xl border-2 border-blue-300/75 bg-white p-4 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-blue-400/90 hover:shadow-lg hover:shadow-blue-500/20">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
                       <AlertTriangle className="w-5 h-5 text-amber-700" />
@@ -1278,7 +1277,7 @@ function UBAdminDashboard() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col"
+                className="flex flex-col rounded-xl border-2 border-blue-300/75 bg-white p-6 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-blue-400/90 hover:shadow-xl hover:shadow-blue-500/15"
               >
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
@@ -1290,7 +1289,7 @@ function UBAdminDashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4 sm:p-5 flex-1 min-h-0">
+                <div className="flex-1 min-h-0 rounded-xl border-2 border-blue-200/70 bg-slate-50/30 p-4 ring-1 ring-blue-100/60 transition-all duration-300 ease-out hover:border-blue-300 hover:bg-slate-50/60 hover:shadow-inner sm:p-5">
                   <SectionErrorBoundary
                     title="Regional map and directory could not be rendered."
                     logLabel="UBAdmin overview: RegisteredUniversitiesByRegion"
@@ -1322,52 +1321,74 @@ function UBAdminDashboard() {
                   title="Governance charts could not be rendered."
                   logLabel="UBAdmin overview: GovernanceCharts"
                 >
-                  <GovernanceCharts
-                    data={mapData}
-                    presentationMode={presentationMode}
-                    sections={['boards', 'resources']}
-                  />
+                  <div className="rounded-xl border-2 border-blue-300/75 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-blue-400/90 hover:shadow-xl hover:shadow-blue-500/15">
+                    <GovernanceCharts
+                      data={mapData}
+                      presentationMode={presentationMode}
+                      sections={['boards', 'resources']}
+                    />
+                  </div>
                 </SectionErrorBoundary>
               ) : (
-                <div className="h-[220px] rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-sm bg-white shadow-sm">
+                <div className="flex h-[220px] items-center justify-center rounded-xl border-2 border-dashed border-blue-300/80 bg-white text-sm text-slate-500 shadow-md ring-1 ring-blue-200/40 transition-all duration-300 ease-out hover:border-blue-400 hover:bg-blue-50/40 hover:shadow-md hover:shadow-blue-500/10">
                   Resource comparison data will appear once analytics are available.
                 </div>
               )}
 
-              {/* Bottom system logs (collapsible) */}
-              <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowSystemLogs((v) => !v)}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                >
-                  <div className="text-left">
-                    <h3 className="text-base font-semibold text-slate-900">System Logs</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Full activity timeline for governance events</p>
-                  </div>
-                  {showSystemLogs ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                </button>
-                <AnimatePresence initial={false}>
-                  {showSystemLogs && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="border-t border-slate-200"
-                    >
-                      <div className="p-5">
-                        <SectionErrorBoundary
-                          title="System logs could not be loaded."
-                          logLabel="UBAdmin overview: GovernanceActivityFeed"
-                        >
-                          <GovernanceActivityFeed isPresentationMode={presentationMode} showTitle={false} />
-                        </SectionErrorBoundary>
+              {/* System logs — always visible, high-visibility command strip */}
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                className="relative overflow-hidden rounded-xl border-2 border-blue-500/70 bg-gradient-to-br from-blue-100/90 via-sky-50 to-indigo-100/80 shadow-[0_12px_40px_-12px_rgba(37,99,235,0.35)] ring-1 ring-blue-300/50 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-[0_20px_52px_-14px_rgba(37,99,235,0.42)] hover:ring-blue-400/55"
+              >
+                <div
+                  className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl"
+                  aria-hidden
+                />
+                <div className="pointer-events-none absolute bottom-0 left-1/4 h-24 w-64 rounded-full bg-amber-400/10 blur-2xl" aria-hidden />
+
+                <div className="relative border-b border-blue-400/40 bg-gradient-to-r from-blue-700/95 via-blue-600 to-indigo-700/95 px-5 py-4 sm:px-6 sm:py-5 text-white shadow-inner">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-2 ring-white/30 backdrop-blur-sm">
+                        <Activity className="h-6 w-6 text-white" strokeWidth={2.25} />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-bold tracking-tight sm:text-xl">Live system logs</h3>
+                          <span className="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-950 shadow-sm ring-1 ring-amber-200/80">
+                            Governance feed
+                          </span>
+                        </div>
+                        <p className="mt-1.5 max-w-2xl text-sm leading-snug text-blue-50/95">
+                          Security, compliance, and institutional actions across the portal — monitored in real time for U&amp;B oversight.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm sm:self-center">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-80" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white/40" />
+                      </span>
+                      Auto-refresh · 10s
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative bg-white/75 p-4 backdrop-blur-[2px] sm:p-5">
+                  <SectionErrorBoundary
+                    title="System logs could not be loaded."
+                    logLabel="UBAdmin overview: GovernanceActivityFeed"
+                  >
+                    <GovernanceActivityFeed
+                      isPresentationMode={presentationMode}
+                      showTitle={false}
+                      variant="commandCenter"
+                    />
+                  </SectionErrorBoundary>
+                </div>
+              </motion.div>
 
                 </>
               )}

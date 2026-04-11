@@ -153,7 +153,7 @@ function ReadinessBlock({ readinessSlices, readinessPieData, animActive, reduced
       initial={reducedMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 bg-gradient-to-br from-white to-emerald-50/40 p-5 shadow-sm"
+      className="rounded-xl border-2 border-slate-200/90 border-l-4 border-l-emerald-500 bg-gradient-to-br from-white to-emerald-50/40 p-5 shadow-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-emerald-500/15"
     >
       <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold text-slate-900">
         <BarChart3 className="h-5 w-5 text-emerald-600" />
@@ -410,7 +410,7 @@ function GovernanceCharts({
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
-              className="min-h-[11rem] w-full rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-sm ring-1 ring-indigo-100/60"
+              className="min-h-[11rem] w-full rounded-xl border-2 border-indigo-200/85 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-md ring-1 ring-indigo-100/60 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/15"
             >
               <div className="mb-2 flex items-center gap-2 text-indigo-900">
                 <Users className="h-4 w-4 text-indigo-600" />
