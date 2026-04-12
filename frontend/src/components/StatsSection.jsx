@@ -19,7 +19,7 @@ function StatsSection() {
   return (
     <section 
       ref={ref} 
-      className="relative py-16 px-4 sm:px-6 lg:px-8 bg-slate-950 min-h-[70vh] flex items-center"
+      className="relative py-16 bg-slate-950 min-h-[70vh] flex items-center"
     >
       {/* Patterned Background Container with Fade Mask */}
       <div 
@@ -47,7 +47,7 @@ function StatsSection() {
         }}
       ></div>
       
-      <div className="relative z-10 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

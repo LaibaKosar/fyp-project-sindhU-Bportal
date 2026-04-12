@@ -44,7 +44,7 @@ function NewsSection() {
   ]
 
   return (
-    <section ref={ref} className="relative py-16 px-4 sm:px-6 lg:px-8 bg-slate-950">
+    <section ref={ref} className="relative py-16 bg-slate-950">
       {/* Geometric grid pattern */}
       <div className="absolute inset-0 opacity-[0.03]">
         <div className="absolute inset-0" style={{
@@ -56,7 +56,7 @@ function NewsSection() {
         }}></div>
       </div>
       
-      <div className="relative z-10 max-w-7xl mx-auto">
+      <div className="relative z-10 w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

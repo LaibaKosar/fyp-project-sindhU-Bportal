@@ -32,8 +32,8 @@ function HowItWorks() {
   ]
 
   return (
-    <section ref={ref} className="relative py-16 px-4 sm:px-6 lg:px-8 bg-slate-900/30">
-      <div className="max-w-7xl mx-auto">
+    <section ref={ref} className="relative py-16 bg-slate-900/30">
+      <div className="w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -50,7 +50,7 @@ function HowItWorks() {
         </motion.div>
 
         {/* Timeline Container */}
-        <div className="relative max-w-6xl mx-auto">
+        <div className="relative max-w-7xl mx-auto">
           
           {/* Vertical Center Line */}
           <div 

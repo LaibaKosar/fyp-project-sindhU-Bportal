@@ -33,7 +33,7 @@ function Hero() {
   const hubX = 600
   const hubY = 280
   return (
-    <section className="relative min-h-[85vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+    <section className="relative min-h-[85vh] flex items-center justify-center pt-8 pb-16">
       {/* Background - Subtle contrast */}
       <div className="absolute inset-0 bg-slate-950"></div>
       
@@ -59,7 +59,7 @@ function Hero() {
         )`
       }}></div>
 
-      <div className="relative z-10 max-w-7xl mx-auto w-full pt-4 pb-16">
+      <div className="relative z-10 w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-4 pb-16">
         <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 items-center min-h-[60vh]">
           {/* Left Content */}
           <motion.div

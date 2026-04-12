@@ -6,6 +6,10 @@ export default {
     ],
     theme: {
       extend: {
+        maxWidth: {
+          /** Public landing shell: wider than `7xl` (1280px), capped for readability */
+          landing: 'min(100%, 96rem)',
+        },
         colors: {
           emerald: {
             800: '#166534', // Sindh Govt Green

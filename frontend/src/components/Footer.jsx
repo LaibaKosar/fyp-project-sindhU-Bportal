@@ -3,7 +3,7 @@ import { MapPin, Phone, Mail } from 'lucide-react'
 function Footer() {
   return (
     <footer className="relative bg-slate-900 border-t border-emerald-800/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-16">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
           {/* Column 1: Logo + About */}
@@ -109,7 +109,7 @@ function Footer() {
 
       {/* Copyright Bar */}
       <div className="border-t border-emerald-800/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6">
           <p className="text-gray-500 text-xs text-center">
             © 2026 Universities & Boards Department, Government of Sindh. All rights reserved.
           </p>

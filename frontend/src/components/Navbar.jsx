@@ -72,7 +72,7 @@ function Navbar() {
       className="sticky top-0 z-50 w-full"
     >
       <div className="bg-white/5 backdrop-blur-xl relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-landing mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex items-center justify-between h-20">
             {/* Left Side - Logo and Title */}
             <div className="flex items-center gap-4 flex-shrink-0">

@@ -11,7 +11,7 @@ import Footer from '../components/Footer'
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen overflow-x-hidden bg-slate-950">
       <Navbar />
       <div id="home">
         <Hero />

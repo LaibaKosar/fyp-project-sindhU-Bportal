@@ -874,45 +874,21 @@ function UFPDashboard() {
                   <div className="text-xs text-slate-500">Total Campuses</div>
                 </motion.div>
 
-                {/* Total Faculties */}
+                {/* Total Faculties — same card chrome as other stats (icon tint only) */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                   onClick={() => navigate('/ufp/faculties')}
-                  className={`rounded-[2rem] px-3 py-4 shadow-lg border hover:scale-105 transition-transform cursor-pointer ${
-                    facultyCount > 0
-                      ? 'bg-emerald-600 border-emerald-500/20 shadow-emerald-500/20'
-                      : 'bg-white/90 border-white/20 shadow-emerald-500/10'
-                  }`}
+                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-emerald-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      facultyCount > 0
-                        ? 'bg-white/20'
-                        : 'bg-emerald-100'
-                    }`}>
-                      <GraduationCap className={`w-5 h-5 ${
-                        facultyCount > 0
-                          ? 'text-white'
-                          : 'text-emerald-600'
-                      }`} />
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <GraduationCap className="w-5 h-5 text-emerald-600" />
                     </div>
                   </div>
-                  <div className={`text-3xl font-bold mb-1 ${
-                    facultyCount > 0
-                      ? 'text-white'
-                      : 'text-slate-900'
-                  }`}>
-                    {facultyCount}
-                  </div>
-                  <div className={`text-xs ${
-                    facultyCount > 0
-                      ? 'text-white/90'
-                      : 'text-slate-500'
-                  }`}>
-                    Total Faculties
-                  </div>
+                  <div className="text-3xl font-bold text-slate-900 mb-1">{facultyCount}</div>
+                  <div className="text-xs text-slate-500">Total Faculties</div>
                 </motion.div>
 
                 {/* Total Departments */}
