@@ -12,22 +12,17 @@ import {
   UsersRound,
   LogOut,
   Plus,
-  School,
   Briefcase,
-  Settings,
   Upload,
   Image as ImageIcon,
   X,
   Palette,
   ChevronDown,
   ChevronRight,
-  FileText,
   Calendar,
   BarChart3,
   Gavel,
-  Scale,
   LayoutGrid,
-  ClipboardList
 } from 'lucide-react'
 
 function UFPDashboard() {
@@ -426,6 +421,27 @@ function UFPDashboard() {
     }
   }
 
+  // Sidebar nav chrome (presentation only — same routes/handlers)
+  const navPillActive =
+    'w-full flex items-center gap-4 px-5 py-4 text-left text-base font-semibold tracking-wide text-white transition-all rounded-full bg-blue-600 shadow-lg shadow-blue-600/25'
+  const navPillInactive =
+    'w-full flex items-center gap-4 px-5 py-4 text-left text-base font-medium tracking-wide text-slate-300 transition-all rounded-lg hover:bg-white/10 hover:text-white'
+  const navCampusToggleActive =
+    'w-full flex items-center justify-between gap-4 px-5 py-4 text-left text-base font-medium tracking-wide text-white transition-all rounded-lg bg-slate-800'
+  const navCampusToggleInactive =
+    'w-full flex items-center justify-between gap-4 px-5 py-4 text-left text-base font-medium tracking-wide text-slate-300 transition-all rounded-lg hover:bg-white/10 hover:text-white'
+  const navSubInactive =
+    'w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-sm font-medium tracking-wide text-slate-300 transition-all rounded-lg hover:bg-white/10 hover:text-white'
+  const navSubActive =
+    'w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-sm font-semibold tracking-wide text-white transition-all rounded-lg bg-slate-800'
+  const navManageActive =
+    'w-full flex items-center gap-3 px-5 py-3 text-left text-sm font-semibold tracking-wide text-white transition-all rounded-lg bg-blue-600 shadow-lg shadow-blue-600/20'
+  const navManageInactive =
+    'w-full flex items-center gap-3 px-5 py-3 text-left text-sm font-medium tracking-wide text-slate-300 transition-all rounded-lg hover:bg-white/10 hover:text-white'
+  const campusesSectionOpen =
+    showCampusesDropdown || activeSection === 'campus-detail' || activeSection === 'campuses'
+  const campusesListVisible = showCampusesDropdown || activeSection === 'campus-detail'
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 to-emerald-100/50 flex items-center justify-center">
@@ -445,7 +461,7 @@ function UFPDashboard() {
             className="fixed inset-0 w-full h-full object-cover z-0 brightness-75"
           />
           {/* Overlay for contrast - makes image sharp and visible with good contrast */}
-          <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-[2px]"></div>
+          <div className="fixed inset-0 z-0 bg-black/45 backdrop-blur-[2px]"></div>
         </>
       )}
       {!backgroundUrl && (
@@ -458,11 +474,11 @@ function UFPDashboard() {
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="w-72 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col shadow-lg"
+        className="w-64 flex-shrink-0 bg-slate-900 border-r border-slate-800/80 flex flex-col shadow-lg sm:w-72"
       >
-        {/* Logo Section */}
-        <div className="flex items-center gap-5 p-8">
-          <div className="w-16 h-16 rounded-xl border-2 border-white overflow-hidden bg-white relative shadow-md flex-shrink-0">
+        {/* Identity */}
+        <div className="flex items-center gap-4 p-5 sm:gap-5 sm:p-6 sm:pb-5">
+          <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl border-2 border-white/25 bg-white shadow-md sm:h-16 sm:w-16">
             {university?.logo_url ? (
               <img 
                 src={university.logo_url} 
@@ -483,8 +499,8 @@ function UFPDashboard() {
                   htmlFor="logo-upload-sidebar"
                   className="w-full h-full flex flex-col items-center justify-center bg-slate-700 hover:bg-slate-600 cursor-pointer transition-colors"
                 >
-                  <Upload className="w-8 h-8 text-white mb-1" />
-                  <span className="text-xs text-white text-center px-1">Upload</span>
+                  <Upload className="mb-1 h-8 w-8 text-white" />
+                  <span className="px-1 text-center text-xs text-white">Upload</span>
                 </label>
               </>
             )}
@@ -498,11 +514,11 @@ function UFPDashboard() {
               
               return (
                 <>
-                  <div className="text-xl font-bold text-white tracking-tight leading-tight">
+                  <div className="text-lg font-bold leading-snug tracking-tight text-white sm:text-xl">
                     {mainName}
                   </div>
                   {suffix && (
-                    <div className="text-sm font-semibold text-slate-400 uppercase tracking-[0.2em] mt-1 leading-tight">
+                    <div className="mt-1 text-xs font-semibold uppercase leading-tight tracking-wider text-slate-400 sm:text-sm">
                       {suffix}
                     </div>
                   )}
@@ -512,53 +528,59 @@ function UFPDashboard() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-b border-white/10 my-5 mx-5"></div>
+        {/* Breathing room + separation before nav (matches earlier sidebar) */}
+        <div
+          className="mx-4 my-5 border-b border-white/10 sm:mx-5 sm:my-6"
+          role="presentation"
+        />
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-2 px-5 overflow-y-auto">
-          {/* 1. Dashboard */}
-          <button
-            onClick={() => navigate('/ufp-dashboard')}
-            className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-              activeSection === 'overview'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-            }`}
-          >
-            <LayoutDashboard className="w-6 h-6" />
-            <span>Dashboard</span>
-          </button>
-
-          {/* Divider */}
-          <div className="border-b border-white/10 my-3"></div>
-
-          {/* 2. Campuses Section */}
-          <div className="space-y-1">
+        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4 sm:px-5" aria-label="UFP dashboard">
+          {/* Primary */}
+          <div className="space-y-2">
             <button
-              onClick={toggleCampusesSection}
-              className={`w-full flex items-center justify-between px-5 py-4 transition-all text-base tracking-wide font-medium ${
-                showCampusesDropdown || activeSection === 'campus-detail' || activeSection === 'campuses'
-                  ? 'bg-slate-800 text-white rounded-lg'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-              }`}
+              type="button"
+              onClick={() => navigate('/ufp-dashboard')}
+              className={activeSection === 'overview' ? navPillActive : navPillInactive}
+              aria-current={location.pathname === '/ufp-dashboard' ? 'page' : undefined}
             >
-              <div className="flex items-center gap-4">
-                <Building2 className="w-6 h-6" />
-                <span>Campuses</span>
+              <LayoutDashboard className="h-6 w-6 flex-shrink-0" aria-hidden />
+              <span>Dashboard</span>
+            </button>
+          </div>
+
+          {/* Structure — campuses */}
+          <div className="space-y-2">
+            <p id="ufp-nav-campuses-label" className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Structure
+            </p>
+            <button
+              type="button"
+              onClick={toggleCampusesSection}
+              className={campusesSectionOpen ? navCampusToggleActive : navCampusToggleInactive}
+              aria-expanded={campusesListVisible}
+              aria-controls="ufp-nav-campuses-panel"
+              id="ufp-nav-campuses-trigger"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <Building2 className="h-6 w-6 flex-shrink-0" aria-hidden />
+                <span className="truncate">Campuses</span>
               </div>
               {showCampusesDropdown ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="h-5 w-5 flex-shrink-0 text-slate-400" aria-hidden />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="h-5 w-5 flex-shrink-0 text-slate-400" aria-hidden />
               )}
             </button>
 
-            {/* Campus List */}
-            {(showCampusesDropdown || activeSection === 'campus-detail') && (
-              <div className="space-y-1 ml-4 border-l-2 border-slate-700 pl-2">
+            {campusesListVisible && (
+              <div
+                id="ufp-nav-campuses-panel"
+                role="group"
+                aria-labelledby="ufp-nav-campuses-trigger"
+                className="mt-1 ml-2 space-y-1 border-l border-slate-700/80 pl-3"
+              >
                 {campuses.length === 0 ? (
-                  <div className="px-5 py-2 text-sm text-slate-400">
+                  <div className="px-3 py-2 text-sm text-slate-500">
                     No campuses yet
                   </div>
                 ) : (
@@ -566,124 +588,114 @@ function UFPDashboard() {
                     const isActive = location.pathname === `/ufp/campus/${campus.id}`
                     return (
                       <button
+                        type="button"
                         key={campus.id}
                         onClick={() => navigate(`/ufp/campus/${campus.id}`)}
-                        className={`w-full flex items-center justify-between px-5 py-3 transition-all text-sm tracking-wide font-medium rounded-lg ${
-                          isActive
-                            ? 'bg-slate-800 text-white'
-                            : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                        }`}
+                        className={isActive ? navSubActive : navSubInactive}
+                        aria-current={isActive ? 'page' : undefined}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-slate-500" aria-hidden />
                           <span className="truncate">{campus.name}</span>
                           {campus.is_main_campus && (
-                            <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs rounded-full">
+                            <span className="flex-shrink-0 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white">
                               Main
                             </span>
                           )}
                         </div>
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-slate-500" aria-hidden />
                       </button>
                     )
                   })
                 )}
-                {/* Manage Campuses Button (inside dropdown) */}
                 <button
+                  type="button"
                   onClick={() => navigate('/ufp/campuses')}
-                  className={`w-full flex items-center gap-3 px-5 py-3 transition-all text-sm tracking-wide font-medium rounded-lg ${
+                  className={
                     activeSection === 'campuses' && !location.pathname.includes('/campus/')
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`}
+                      ? navManageActive
+                      : navManageInactive
+                  }
+                  aria-current={
+                    activeSection === 'campuses' && !location.pathname.includes('/campus/')
+                      ? 'page'
+                      : undefined
+                  }
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="h-5 w-5 flex-shrink-0" aria-hidden />
                   <span>Manage Campuses</span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* Divider */}
-          <div className="border-b border-white/10 my-3"></div>
-
-          {/* 3. Meetings */}
-          <button
-            onClick={() => navigate('/ufp/meetings')}
-            className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-              activeSection === 'meetings'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-            }`}
-          >
-            <Calendar className="w-6 h-6" />
-            <span>Meetings</span>
-          </button>
-
-          {/* 4. Reports */}
-          <button
-            onClick={() => navigate('/ufp/reports')}
-            className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-              activeSection === 'reports'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-            }`}
-          >
-            <BarChart3 className="w-6 h-6" />
-            <span>Reports</span>
-          </button>
-
-          {/* Divider */}
-          <div className="border-b border-white/10 my-3"></div>
-
-          {/* 5. Governance Section */}
-          <div className="space-y-1">
-            <div className="px-5 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Governance
-            </div>
+          {/* Operations */}
+          <div className="space-y-2">
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Operations
+            </p>
             <button
-              onClick={() => navigate('/ufp/senate')}
-              className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-                location.pathname.includes('/senate')
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-              }`}
+              type="button"
+              onClick={() => navigate('/ufp/meetings')}
+              className={activeSection === 'meetings' ? navPillActive : navPillInactive}
+              aria-current={activeSection === 'meetings' ? 'page' : undefined}
             >
-              <Gavel className="w-6 h-6" />
+              <Calendar className="h-6 w-6 flex-shrink-0" aria-hidden />
+              <span>Meetings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/ufp/reports')}
+              className={activeSection === 'reports' ? navPillActive : navPillInactive}
+              aria-current={activeSection === 'reports' ? 'page' : undefined}
+            >
+              <BarChart3 className="h-6 w-6 flex-shrink-0" aria-hidden />
+              <span>Reports</span>
+            </button>
+          </div>
+
+          {/* Governance */}
+          <div className="space-y-2">
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Governance
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/ufp/senate')}
+              className={location.pathname.includes('/senate') ? navPillActive : navPillInactive}
+              aria-current={location.pathname.includes('/senate') ? 'page' : undefined}
+            >
+              <Gavel className="h-6 w-6 flex-shrink-0" aria-hidden />
               <span>Senate</span>
             </button>
             <button
+              type="button"
               onClick={() => navigate('/ufp/syndicate')}
-              className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-                location.pathname.includes('/syndicate')
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-              }`}
+              className={location.pathname.includes('/syndicate') ? navPillActive : navPillInactive}
+              aria-current={location.pathname.includes('/syndicate') ? 'page' : undefined}
             >
-              <Briefcase className="w-6 h-6" />
+              <Briefcase className="h-6 w-6 flex-shrink-0" aria-hidden />
               <span>Syndicate</span>
             </button>
             <button
+              type="button"
               onClick={() => navigate('/ufp/boards')}
-              className={`w-full flex items-center gap-4 px-5 py-4 transition-all text-base tracking-wide font-medium ${
-                location.pathname.includes('/boards')
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 rounded-full'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white rounded-lg'
-              }`}
+              className={location.pathname.includes('/boards') ? navPillActive : navPillInactive}
+              aria-current={location.pathname.includes('/boards') ? 'page' : undefined}
             >
-              <LayoutGrid className="w-6 h-6" />
+              <LayoutGrid className="h-6 w-6 flex-shrink-0" aria-hidden />
               <span>Boards</span>
             </button>
           </div>
         </nav>
 
-        {/* Logout */}
-        <div className="px-5 pb-8">
+        <div className="border-t border-white/10 px-4 pb-6 pt-3">
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all text-base tracking-wide font-medium"
+            className={`${navPillInactive} text-slate-400 hover:text-white`}
           >
-            <LogOut className="w-6 h-6" />
+            <LogOut className="h-6 w-6 flex-shrink-0" aria-hidden />
             <span>Logout</span>
           </button>
         </div>
@@ -692,23 +704,26 @@ function UFPDashboard() {
       {/* Main Content - only this area scrolls */}
       <main className="flex-1 min-h-0 overflow-y-auto">
         {/* Top Header */}
-        <div className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-20 flex items-center justify-between px-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">
+        <div className="h-14 sm:h-16 bg-white/85 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 flex items-center justify-between gap-4 px-5 sm:px-8 shadow-sm">
+          <h1 className="min-w-0 truncate text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
             {university?.name || 'University Dashboard'}
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
             <button
+              type="button"
               onClick={() => setShowCustomize(!showCustomize)}
-              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
+              className="rounded-lg border border-slate-200/80 bg-white/90 p-2 text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
               title="University Branding"
+              aria-expanded={showCustomize}
             >
-              <Palette className="w-5 h-5" />
+              <Palette className="h-5 w-5" aria-hidden />
             </button>
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium shadow-md hover:shadow-lg"
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" aria-hidden />
               <span>Log Out</span>
             </button>
           </div>
@@ -719,9 +734,10 @@ function UFPDashboard() {
           <>
             {/* Backdrop */}
             <div 
-              className="fixed inset-0 bg-black/20 z-40"
+              className="fixed inset-0 z-40 bg-black/25"
               onClick={() => setShowCustomize(false)}
-            ></div>
+              aria-hidden
+            />
             
             {/* Side Drawer */}
             <motion.div
@@ -732,13 +748,15 @@ function UFPDashboard() {
               className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col"
             >
               {/* Drawer Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                <h2 className="text-xl font-bold text-slate-900">University Branding</h2>
+              <div className="flex items-center justify-between border-b border-slate-200 p-5 sm:p-6">
+                <h2 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">University Branding</h2>
                 <button
+                  type="button"
                   onClick={() => setShowCustomize(false)}
-                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                  aria-label="Close branding panel"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="h-5 w-5" aria-hidden />
                 </button>
               </div>
               
@@ -837,41 +855,46 @@ function UFPDashboard() {
         )}
 
         {/* Main Content Area */}
-        <div className="p-8">
+        <div className="p-5 sm:p-8">
           {activeSection === 'overview' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="space-y-8"
+              className="w-full space-y-5 sm:space-y-6"
             >
-              {/* Welcome Section - High Contrast Dark Glass */}
-              <div className="bg-slate-900/75 backdrop-blur-lg border border-slate-700/50 rounded-3xl p-8">
-                <h2 className="text-4xl font-bold text-white mb-2">
-                  Welcome back, {user?.full_name || 'User'}!
-                </h2>
-                <p className="text-white/90 text-lg">
-                  Manage your university's academic structure and resources
-                </p>
-              </div>
+              <section aria-labelledby="ufp-overview-welcome-heading" className="rounded-xl border border-slate-700/40 bg-slate-900/78 px-5 py-4 shadow-lg backdrop-blur-lg sm:rounded-2xl sm:px-6 sm:py-5">
+                <div className="max-w-3xl">
+                  <h2 id="ufp-overview-welcome-heading" className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
+                    Welcome back, {user?.full_name || 'User'}!
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-white/85 sm:text-base">
+                    Manage your university's academic structure and resources
+                  </p>
+                </div>
+              </section>
 
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+              <section aria-labelledby="ufp-overview-stats-heading">
+                <h3 id="ufp-overview-stats-heading" className="sr-only">
+                  Institution snapshot
+                </h3>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {/* Total Campuses */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0 }}
                   onClick={() => navigate('/ufp/campuses')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-blue-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-blue-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(59,130,246,0.32)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-blue-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-blue-400 to-blue-600 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-blue-400/40">
+                      <Building2 className="h-5 w-5 text-blue-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{campusCount}</div>
-                  <div className="text-xs text-slate-500">Total Campuses</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{campusCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Campuses</div>
                 </motion.div>
 
                 {/* Total Faculties — same card chrome as other stats (icon tint only) */}
@@ -880,15 +903,16 @@ function UFPDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                   onClick={() => navigate('/ufp/faculties')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-emerald-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-emerald-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(16,185,129,0.3)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                      <GraduationCap className="w-5 h-5 text-emerald-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-emerald-400 to-teal-600 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-emerald-400/40">
+                      <GraduationCap className="h-5 w-5 text-emerald-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{facultyCount}</div>
-                  <div className="text-xs text-slate-500">Total Faculties</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{facultyCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Faculties</div>
                 </motion.div>
 
                 {/* Total Departments */}
@@ -897,15 +921,16 @@ function UFPDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                   onClick={() => navigate('/ufp/departments')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-blue-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-cyan-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(34,211,238,0.28)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-blue-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-cyan-400 to-blue-500 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-cyan-400/40">
+                      <Users className="h-5 w-5 text-blue-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{departmentCount}</div>
-                  <div className="text-xs text-slate-500">Total Departments</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{departmentCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Departments</div>
                 </motion.div>
 
                 {/* Total Programs */}
@@ -914,15 +939,16 @@ function UFPDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25 }}
                   onClick={() => navigate('/ufp/programs')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-purple-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-purple-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(168,85,247,0.3)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <BookOpen className="w-5 h-5 text-purple-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-purple-400 to-violet-600 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-purple-400/40">
+                      <BookOpen className="h-5 w-5 text-purple-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{programCount}</div>
-                  <div className="text-xs text-slate-500">Total Programs</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{programCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Programs</div>
                 </motion.div>
 
                 {/* Total Staff */}
@@ -931,15 +957,16 @@ function UFPDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.35 }}
                   onClick={() => navigate('/ufp/staff')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-purple-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-violet-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(139,92,246,0.3)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <UserCheck className="w-5 h-5 text-purple-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-violet-400 to-fuchsia-600 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-violet-400/40">
+                      <UserCheck className="h-5 w-5 text-purple-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{staffCount}</div>
-                  <div className="text-xs text-slate-500">Total Staff</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{staffCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Staff</div>
                 </motion.div>
 
                 {/* Students Enrolled */}
@@ -948,73 +975,77 @@ function UFPDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
                   onClick={() => navigate('/ufp/students')}
-                  className="bg-white/90 rounded-[2rem] px-3 py-4 shadow-lg shadow-amber-500/10 border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+                  className="group relative cursor-pointer overflow-hidden rounded-[2rem] border border-white/25 bg-white/92 px-4 py-4 shadow-md backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-amber-200/90 hover:bg-white hover:shadow-[0_22px_50px_-12px_rgba(245,158,11,0.32)] active:translate-y-0 active:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                      <UsersRound className="w-5 h-5 text-amber-600" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 scale-x-0 bg-gradient-to-r from-amber-400 to-orange-500 opacity-90 transition-transform duration-200 group-hover:scale-x-100" aria-hidden />
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 shadow-sm ring-0 transition-all duration-200 group-hover:scale-110 group-hover:shadow-md group-hover:ring-2 group-hover:ring-amber-400/45">
+                      <UsersRound className="h-5 w-5 text-amber-600" aria-hidden />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{studentCount}</div>
-                  <div className="text-xs text-slate-500">Total Students</div>
+                  <div className="mb-1 text-3xl font-bold tabular-nums text-slate-900">{studentCount}</div>
+                  <div className="text-xs font-medium text-slate-500">Total Students</div>
                 </motion.div>
-              </div>
-
-              {/* Quick Actions */}
-              <div>
-                <div className="mb-4 inline-block">
-                  <h3 className="text-xl font-bold text-white px-4 py-2 bg-slate-900/80 backdrop-blur-md rounded-lg border border-white/30 shadow-lg">
-                    Quick Actions
-                  </h3>
                 </div>
-                <div className="flex flex-wrap gap-4">
+              </section>
+
+              <section aria-labelledby="ufp-overview-quick-heading" className="rounded-2xl border border-white/15 bg-slate-900/40 p-5 sm:p-6 backdrop-blur-md">
+                <h3 id="ufp-overview-quick-heading" className="text-base font-semibold tracking-tight text-white/95 sm:text-lg">
+                  Quick Actions
+                </h3>
+                <div className="mt-4 flex flex-wrap gap-4">
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/ufp/campuses')}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-full font-semibold transition-all shadow-lg border-2 border-cyan-400/30"
+                    className="flex items-center gap-2 rounded-full border-2 border-cyan-400/30 bg-gradient-to-r from-cyan-500 to-blue-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:from-cyan-600 hover:to-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <Building2 className="w-5 h-5" />
+                    <Building2 className="h-5 w-5 flex-shrink-0" aria-hidden />
                     <span>Add Campus</span>
                   </motion.button>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/ufp/faculties')}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-full font-semibold transition-all shadow-lg border-2 border-emerald-400/30"
+                    className="flex items-center gap-2 rounded-full border-2 border-emerald-400/30 bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:from-emerald-600 hover:to-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-5 w-5 flex-shrink-0" aria-hidden />
                     <span>Add Faculty</span>
                   </motion.button>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/ufp/departments')}
-                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold transition-all shadow-lg border-2 border-blue-400/30"
+                    className="flex items-center gap-2 rounded-full border-2 border-blue-400/30 bg-blue-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-5 w-5 flex-shrink-0" aria-hidden />
                     <span>Add Department</span>
                   </motion.button>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/ufp/programs')}
-                    className="flex items-center gap-2 px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-semibold transition-all shadow-lg border-2 border-purple-400/30"
+                    className="flex items-center gap-2 rounded-full border-2 border-purple-400/30 bg-purple-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:bg-purple-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-5 w-5 flex-shrink-0" aria-hidden />
                     <span>Add Program</span>
                   </motion.button>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/ufp/staff')}
-                    className="flex items-center gap-2 px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-full font-semibold transition-all shadow-lg border-2 border-amber-400/30"
+                    className="flex items-center gap-2 rounded-full border-2 border-amber-400/30 bg-amber-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:bg-amber-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-5 w-5 flex-shrink-0" aria-hidden />
                     <span>Add Staff Member</span>
                   </motion.button>
                 </div>
-              </div>
+              </section>
             </motion.div>
           )}
 
@@ -1024,12 +1055,12 @@ function UFPDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-xl p-8 shadow-md"
+              className="w-full max-w-3xl rounded-2xl border border-slate-200/80 bg-white/95 p-8 shadow-md backdrop-blur-sm"
             >
-              <h2 className="text-2xl font-bold text-slate-900 mb-4 capitalize">
+              <h2 className="mb-3 text-2xl font-bold capitalize tracking-tight text-slate-900">
                 {activeSection.replace(/([A-Z])/g, ' $1').trim()}
               </h2>
-              <p className="text-slate-600">
+              <p className="leading-relaxed text-slate-600">
                 This section is coming soon. You'll be able to manage {activeSection} here.
               </p>
             </motion.div>

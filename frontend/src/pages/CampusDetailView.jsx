@@ -5,12 +5,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Building2,
-  Loader2,
   Plus,
   Briefcase
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
 import DirectoryRow from '../components/DirectoryRow'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 
 function CampusDetailView() {
   const navigate = useNavigate()
@@ -428,53 +428,49 @@ function CampusDetailView() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   if (!campus) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-center">
-          <Building2 className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Campus Not Found</h2>
-          <p className="text-slate-600 mb-4">The campus you're looking for doesn't exist.</p>
-          <button
-            onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all"
-          >
-            Back
-          </button>
-        </div>
-      </div>
+      <UfpAdminShell>
+        <UfpAdminContainer>
+          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <Building2 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+            <h2 className="mb-2 text-xl font-semibold text-slate-900">Campus Not Found</h2>
+            <p className="mb-6 text-sm text-slate-600">The campus you&apos;re looking for doesn&apos;t exist.</p>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Back
+            </button>
+          </div>
+        </UfpAdminContainer>
+      </UfpAdminShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
+        initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
+        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-md sm:p-6"
       >
-        {/* Back Button */}
         <motion.button
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
         >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </motion.button>
 
         <Breadcrumbs
@@ -483,21 +479,20 @@ function CampusDetailView() {
             { label: campus.name, path: `/ufp/campus/${id}` },
             { label: 'Faculties' }
           ]}
-          className="text-white/80 mb-2"
+          className="mb-2 text-sm text-slate-500"
         />
 
-        {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">{campus.name}</h2>
-          <div className="flex items-center gap-4 text-white/90">
-            <span className="text-sm">{campus.city}</span>
+          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{campus.name}</h2>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 sm:gap-3">
+            <span>{campus.city}</span>
             {campus.is_main_campus && (
-              <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-semibold rounded-full">
+              <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
                 Main Campus
               </span>
             )}
             {campus.code && (
-              <span className="px-3 py-1 bg-white/10 text-white text-xs font-mono rounded-full">
+              <span className="rounded-full bg-slate-100 px-3 py-0.5 font-mono text-xs font-medium text-slate-700">
                 {campus.code}
               </span>
             )}
@@ -506,34 +501,34 @@ function CampusDetailView() {
       </motion.div>
 
       {/* Faculty Directory ladder view */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">All Faculties</h3>
-            <p className="text-xs text-slate-500">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-md sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 border-l-4 border-l-blue-600 pl-3">
+            <h3 className="text-xl font-semibold tracking-tight text-slate-900">All Faculties</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
               Expand a faculty to see its departments, programs, and enrollment reports in a single nested view.
             </p>
           </div>
           <button
             type="button"
             onClick={() => navigate(`/ufp/faculties?campusId=${id}`)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Add Faculty
           </button>
         </div>
 
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200">
           {/* Header row */}
-          <div className="flex items-center bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+          <div className="flex items-center border-b-2 border-slate-200 bg-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
             <div className="flex-1 px-3 py-2">Name / Hierarchy</div>
             <div className="w-52 px-3 py-2">Code / Type</div>
             <div className="w-64 px-3 py-2">Focal / Status</div>
           </div>
 
           {/* Body */}
-          <div className="max-h-[520px] overflow-y-auto">
+          <div className="max-h-[520px] overflow-y-auto bg-slate-50">
             {faculties.length === 0 ? (
               <div className="px-4 py-6 text-sm text-slate-500">
                 No faculties added yet for this campus. Use the Add Faculty button to get started.
@@ -546,16 +541,18 @@ function CampusDetailView() {
       </div>
 
       {/* Campus-level: Non-Teaching Staff (optional entry) */}
-      <div className="mt-8 flex justify-end">
+      <div className="mt-6 flex justify-end">
         <button
+          type="button"
           onClick={() => navigate(`/ufp/staff?campusId=${id}&staffType=Non-Teaching`)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-slate-700 hover:bg-slate-50 text-sm font-medium shadow-sm"
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-medium text-blue-800 shadow-sm hover:bg-blue-50"
         >
-          <Briefcase className="w-4 h-4" />
+          <Briefcase className="h-4 w-4" />
           Non-Teaching Staff ({nonTeachingCount})
         </button>
       </div>
-    </div>
+      </UfpAdminContainer>
+    </UfpAdminShell>
   )
 }
 

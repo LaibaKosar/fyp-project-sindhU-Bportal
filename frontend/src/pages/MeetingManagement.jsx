@@ -21,6 +21,7 @@ import {
   FileCheck
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 
 // Body Types
@@ -349,32 +350,28 @@ function MeetingManagement() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl">Loading...</div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
+        initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
+        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
       >
-        {/* Back Button */}
         <motion.button
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
         >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </motion.button>
 
         <Breadcrumbs
@@ -382,29 +379,29 @@ function MeetingManagement() {
             { label: 'Dashboard', path: '/ufp-dashboard' },
             { label: 'Meeting Management' }
           ]}
-          className="text-white/80 mb-2"
+          className="mb-4 text-sm text-slate-500"
         />
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Meeting Management</h2>
-            <p className="text-white/90">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Meeting Management</h2>
+            <p className="text-sm text-slate-600 sm:text-base">
               Official records and audit trail for all university meetings
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-4 w-4" />
             <span>Add Meeting</span>
           </button>
         </div>
       </motion.div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-slate-200 overflow-visible relative z-10">
+      <div className="relative z-10 mb-6 overflow-visible rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-5 shadow-sm sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 overflow-visible">
           {/* Search */}
           <div className="relative overflow-visible">
@@ -451,12 +448,13 @@ function MeetingManagement() {
           {/* Clear Filters */}
           {(searchQuery || filterYear || filterBodyType) && (
             <button
+              type="button"
               onClick={() => {
                 setSearchQuery('')
                 setFilterYear('')
                 setFilterBodyType('')
               }}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-all"
+              className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 transition-all hover:bg-slate-200"
             >
               Clear Filters
             </button>
@@ -470,16 +468,17 @@ function MeetingManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-16 border border-slate-100 text-center max-w-2xl mx-auto"
+          className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm sm:p-16"
         >
-          <Calendar className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-3">No Meetings Recorded</h3>
-          <p className="text-slate-600 mb-8 text-lg">Get started by adding your first meeting record.</p>
+          <Calendar className="mx-auto mb-6 h-16 w-16 text-slate-300 sm:h-24 sm:w-24" />
+          <h3 className="mb-3 text-xl font-bold text-slate-900 sm:text-2xl">No Meetings Recorded</h3>
+          <p className="mb-8 text-slate-600">Get started by adding your first meeting record.</p>
           <button
+            type="button"
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg text-lg"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="h-5 w-5" />
             <span>Add First Meeting</span>
           </button>
         </motion.div>
@@ -491,7 +490,7 @@ function MeetingManagement() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="bg-white rounded-2xl shadow-lg border border-slate-300 p-6 hover:shadow-xl transition-all"
+              className="rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6"
             >
               <div className="flex items-start justify-between gap-6">
                 <div className="flex-1 min-w-0">
@@ -552,26 +551,29 @@ function MeetingManagement() {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 flex-shrink-0">
+                <div className="flex flex-shrink-0 flex-col gap-2">
                   <button
+                    type="button"
                     onClick={() => handleViewDetails(meeting)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 text-sm whitespace-nowrap"
+                    className="flex items-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700"
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="h-4 w-4" />
                     <span>View Details</span>
                   </button>
                   {meeting.minutes_url && (
                     <button
+                      type="button"
                       onClick={() => handleDownloadMinutes(meeting)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 text-sm whitespace-nowrap"
+                      className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 transition-all hover:bg-blue-50"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="h-4 w-4" />
                       <span>Minutes</span>
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => handleDelete(meeting.id)}
-                    className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all"
+                    className="rounded-lg bg-red-50 p-2 text-red-700 transition-all hover:bg-red-100"
                     title="Delete meeting"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -582,6 +584,8 @@ function MeetingManagement() {
           ))}
         </div>
       )}
+
+      </UfpAdminContainer>
 
       {/* Add Meeting Modal */}
       <AnimatePresence>
@@ -960,7 +964,7 @@ function MeetingManagement() {
           {toast.message}
         </motion.div>
       )}
-    </div>
+    </UfpAdminShell>
   )
 }
 

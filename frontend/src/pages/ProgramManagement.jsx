@@ -13,6 +13,7 @@ import {
   GraduationCap
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 
 // Map Degree Level (UI label) to PROGRAM_CATEGORIES key
 const DEGREE_LEVEL_TO_KEY = {
@@ -455,32 +456,28 @@ function ProgramManagement() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl">Loading...</div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
+        initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
+        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
       >
-        {/* Back Button */}
         <motion.button
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
         >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </motion.button>
 
         <Breadcrumbs
@@ -488,13 +485,12 @@ function ProgramManagement() {
             { label: 'Dashboard', path: '/ufp-dashboard' },
             { label: 'Program Management' }
           ]}
-          className="text-white/80 mb-2"
+          className="mb-2 text-sm text-slate-500"
         />
 
-        {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">Program Management</h2>
-          <p className="text-white/90">
+          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Program Management</h2>
+          <p className="text-sm text-slate-600 sm:text-base">
             {campusId ? `Manage programs for ${campusName || 'this campus'}` : 'Manage your university programs'}
           </p>
         </div>
@@ -506,35 +502,35 @@ function ProgramManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-16 border border-slate-100 text-center max-w-2xl mx-auto"
+          className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm sm:p-16"
         >
-          <BookOpen className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-3">No Programs Yet</h3>
-          <p className="text-slate-600 mb-8 text-lg">Get started by adding your first program.</p>
+          <BookOpen className="mx-auto mb-6 h-16 w-16 text-slate-300 sm:h-24 sm:w-24" />
+          <h3 className="mb-3 text-xl font-bold text-slate-900 sm:text-2xl">No Programs Yet</h3>
+          <p className="mb-8 text-slate-600">Get started by adding your first program.</p>
           <button
+            type="button"
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg text-lg"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="h-5 w-5" />
             <span>Add First Program</span>
           </button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {/* Quick Add Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             onClick={() => setShowForm(true)}
-            className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[8px] border-t-blue-600 p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[280px] max-w-[380px] w-full"
+            className="flex min-h-[220px] w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 border-l-4 border-l-blue-600 bg-white p-6 shadow-sm transition-shadow hover:border-slate-400 hover:shadow-md"
           >
-            <div className="w-20 h-20 rounded-full bg-cyan-100 flex items-center justify-center mb-4">
-              <Plus className="w-10 h-10 text-cyan-600" />
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+              <Plus className="h-6 w-6 text-blue-600" />
             </div>
-            <button className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg">
-              Add Program
-            </button>
+            <span className="text-sm font-semibold text-slate-800">Add Program</span>
+            <span className="mt-1 text-center text-xs text-slate-500">Register a new degree program</span>
           </motion.div>
 
           {/* Program Cards */}
@@ -544,32 +540,33 @@ function ProgramManagement() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
-              className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[8px] border-t-blue-600 p-8 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative max-w-[380px] w-full flex flex-col items-center text-center"
+              className="relative flex w-full flex-col items-center rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-6 text-center shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
             >
               {/* Campus Location Badge (Only in Global View) */}
               {!campusId && program.campuses && program.campuses.name && (
-                <div className="absolute top-4 left-4 px-3 py-1 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-full flex items-center gap-1 z-10">
-                  <MapPin className="w-3 h-3" />
+                <div className="absolute left-3 top-3 z-10 flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+                  <MapPin className="h-3 w-3 shrink-0 text-slate-500" />
                   <span>{program.campuses.name}</span>
                 </div>
               )}
 
               {/* Delete Button */}
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDelete(program.id)
                 }}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-900 hover:bg-red-600 hover:scale-110 flex items-center justify-center shadow-md transition-all duration-200 z-10"
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                 title="Delete program"
               >
-                <Trash2 className="w-[18px] h-[18px] text-white" />
+                <Trash2 className="h-4 w-4" />
               </button>
 
               {/* Program Icon */}
-              <div className="mb-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mx-auto shadow-lg">
-                  <GraduationCap className="w-10 h-10 text-white" />
+              <div className="mb-5 mt-6">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+                  <GraduationCap className="h-7 w-7 text-blue-600" />
                 </div>
               </div>
 
@@ -602,6 +599,8 @@ function ProgramManagement() {
           ))}
         </div>
       )}
+
+      </UfpAdminContainer>
 
       {/* Modal Form */}
       <AnimatePresence>
@@ -859,7 +858,7 @@ function ProgramManagement() {
           {toast.message}
         </motion.div>
       )}
-    </div>
+    </UfpAdminShell>
   )
 }
 

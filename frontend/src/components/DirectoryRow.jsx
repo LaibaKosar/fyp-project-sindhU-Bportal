@@ -65,7 +65,7 @@ export default function DirectoryRow({
 
   return (
     <div
-      className={`flex items-center border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors text-sm`}
+      className={`flex items-center border-b border-slate-200/80 bg-white hover:bg-slate-50 transition-colors text-sm`}
     >
       {/* Name column with ladder indent + caret */}
       <div className={`flex items-center gap-2 py-2.5 pr-3 flex-1 min-w-0 ${indentClass}`}>

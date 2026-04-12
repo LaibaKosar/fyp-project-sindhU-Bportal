@@ -11,13 +11,43 @@ import {
   UserCheck,
   GraduationCap,
   FileText,
-  Download,
   User,
-  Camera,
   Search,
   SlidersHorizontal
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
+
+/** Must match `DEGREE_LEVELS` in ProgramManagement.jsx (add program form). */
+const PROGRAM_DEGREE_LEVEL_FILTER_OPTIONS = [
+  'Undergraduate',
+  'Graduate (MS/M.Phil)',
+  'Postgraduate (PhD)'
+]
+
+/** Align with StaffManagement.jsx teaching-staff form options. */
+const ACADEMIC_DESIGNATION_OPTIONS = [
+  'Professor',
+  'Associate Professor',
+  'Assistant Professor',
+  'Lecturer',
+  'Instructor',
+  'Lab Instructor'
+]
+
+const STAFF_EMPLOYMENT_TYPE_OPTIONS = ['Permanent', 'Contract', 'Visiting', 'Daily Wages']
+
+const STAFF_ADMINISTRATIVE_ROLE_OPTIONS = [
+  'No Additional Role',
+  'Dean',
+  'Head of Department',
+  'Director',
+  'Chairperson',
+  'Program Coordinator'
+]
+
+const STAFF_GENDER_OPTIONS = ['Male', 'Female', 'Prefer not to say']
 
 function DepartmentDetailView() {
   const navigate = useNavigate()
@@ -34,8 +64,14 @@ function DepartmentDetailView() {
   const [uploadError, setUploadError] = useState(null)
   const [programSearch, setProgramSearch] = useState('')
   const [programCategoryFilter, setProgramCategoryFilter] = useState('')
+  const [programDegreeFilter, setProgramDegreeFilter] = useState('')
+  const [programDurationFilter, setProgramDurationFilter] = useState('')
+  const [programCreditsFilter, setProgramCreditsFilter] = useState('')
   const [staffSearch, setStaffSearch] = useState('')
   const [staffDesignationFilter, setStaffDesignationFilter] = useState('')
+  const [staffEmploymentFilter, setStaffEmploymentFilter] = useState('')
+  const [staffAdminRoleFilter, setStaffAdminRoleFilter] = useState('')
+  const [staffGenderFilter, setStaffGenderFilter] = useState('')
 
   useEffect(() => {
     loadUserData()
@@ -137,7 +173,7 @@ function DepartmentDetailView() {
     if (!deptId || !user?.university_id) return
     const { data, error } = await supabase
       .from('programs')
-      .select('id, name, category')
+      .select('id, name, category, degree_level, duration_years, total_credit_hours')
       .eq('university_id', user.university_id)
       .eq('department_id', deptId)
       .order('name', { ascending: true })
@@ -152,7 +188,9 @@ function DepartmentDetailView() {
     if (!deptId || !user?.university_id) return
     const { data, error } = await supabase
       .from('staff')
-      .select('id, full_name, academic_designation, designation, profile_photo_url, qualification, specialization')
+      .select(
+        'id, full_name, academic_designation, designation, profile_photo_url, qualification, specialization, email, phone, gender, employment_type, administrative_role'
+      )
       .eq('university_id', user.university_id)
       .eq('department_id', deptId)
       .eq('type', 'Teaching')
@@ -212,25 +250,19 @@ function DepartmentDetailView() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   if (!campus || !faculty || !department) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="text-center">
-          <Building2 className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Not Found</h2>
+          <Building2 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+          <h2 className="mb-3 text-xl font-semibold text-slate-900">Not Found</h2>
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             Back
           </button>
@@ -242,38 +274,92 @@ function DepartmentDetailView() {
   const displayDesignation = (s) => s.academic_designation || s.designation || null
 
   const programCategories = [...new Set(programs.map((p) => p.category).filter(Boolean))].sort()
-  const staffDesignations = [...new Set(teachingStaff.map((s) => displayDesignation(s)).filter(Boolean))].sort()
-
+  const degreeLevelsFromData = [...new Set(programs.map((p) => p.degree_level).filter(Boolean))]
+  const extraDegreeLevels = degreeLevelsFromData
+    .filter((l) => !PROGRAM_DEGREE_LEVEL_FILTER_OPTIONS.includes(l))
+    .sort((a, b) => a.localeCompare(b))
+  const programDegreeLevelFilterOptions = [...PROGRAM_DEGREE_LEVEL_FILTER_OPTIONS, ...extraDegreeLevels]
+  const programDurations = [
+    ...new Set(
+      programs
+        .map((p) => p.duration_years)
+        .filter((y) => y != null && y !== '')
+        .map((y) => String(y))
+    )
+  ].sort((a, b) => Number(a) - Number(b))
+  const programCreditOptions = [
+    ...new Set(
+      programs
+        .map((p) => p.total_credit_hours)
+        .filter((c) => c != null && c !== '')
+        .map((c) => String(c))
+    )
+  ].sort((a, b) => Number(a) - Number(b))
+  const staffDesignationsFromData = [...new Set(teachingStaff.map((s) => displayDesignation(s)).filter(Boolean))]
+  const staffDesignationFilterOptions = [
+    ...ACADEMIC_DESIGNATION_OPTIONS,
+    ...staffDesignationsFromData
+      .filter((d) => !ACADEMIC_DESIGNATION_OPTIONS.includes(d))
+      .sort((a, b) => a.localeCompare(b))
+  ]
   const filteredPrograms = programs.filter((p) => {
-    const matchSearch = !programSearch || (p.name || '').toLowerCase().includes(programSearch.toLowerCase())
+    const q = programSearch.trim().toLowerCase()
+    const matchSearch =
+      !q ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.degree_level || '').toLowerCase().includes(q)
     const matchCategory = !programCategoryFilter || (p.category || '') === programCategoryFilter
-    return matchSearch && matchCategory
+    const matchDegree = !programDegreeFilter || (p.degree_level || '') === programDegreeFilter
+    const matchDuration =
+      !programDurationFilter || String(p.duration_years ?? '') === programDurationFilter
+    const matchCredits =
+      !programCreditsFilter || String(p.total_credit_hours ?? '') === programCreditsFilter
+    return matchSearch && matchCategory && matchDegree && matchDuration && matchCredits
   })
 
   const filteredTeachingStaff = teachingStaff.filter((s) => {
-    const matchSearch = !staffSearch || (s.full_name || '').toLowerCase().includes(staffSearch.toLowerCase())
+    const q = staffSearch.trim().toLowerCase()
+    const matchSearch =
+      !q ||
+      (s.full_name || '').toLowerCase().includes(q) ||
+      (s.email || '').toLowerCase().includes(q) ||
+      (s.phone || '').toLowerCase().replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
+      (s.qualification || '').toLowerCase().includes(q) ||
+      (s.specialization || '').toLowerCase().includes(q) ||
+      (s.administrative_role || '').toLowerCase().includes(q)
     const designation = displayDesignation(s)
     const matchDesignation = !staffDesignationFilter || designation === staffDesignationFilter
-    return matchSearch && matchDesignation
+    const matchEmployment =
+      !staffEmploymentFilter || (s.employment_type || '') === staffEmploymentFilter
+    const adminRole = s.administrative_role || 'No Additional Role'
+    const matchAdminRole = !staffAdminRoleFilter || adminRole === staffAdminRoleFilter
+    const matchGender = !staffGenderFilter || (s.gender || '') === staffGenderFilter
+    return (
+      matchSearch &&
+      matchDesignation &&
+      matchEmployment &&
+      matchAdminRole &&
+      matchGender
+    )
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] px-6 lg:px-10 py-8">
-      <div className="w-full">
-        {/* Header: left = nav + title, right = HOD corner card — centered grouping */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
         <motion.div
-          initial={{ y: -20, opacity: 0 }}
+          initial={{ y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white/5 backdrop-blur-md border-b border-white/10 px-5 py-5 mb-6 rounded-t-3xl"
+          className="mb-10 rounded-xl border border-slate-200/90 border-t-2 border-t-blue-600 bg-gradient-to-br from-white via-blue-50/[0.07] to-slate-50 p-5 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/50 sm:mb-12 sm:p-6"
         >
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
-            {/* Left: navigation + title */}
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
             <div className="min-w-0 flex-1">
               <button
+                type="button"
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold text-sm mb-4"
+                className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-4 w-4" />
                 Back
               </button>
               <Breadcrumbs
@@ -284,341 +370,407 @@ function DepartmentDetailView() {
                   { label: faculty.name, path: `/ufp/campus/${campusId}/faculty/${facultyId}` },
                   { label: department.name }
                 ]}
-                className="text-white/80 text-xs mb-1.5"
+                className="mb-2 text-sm text-slate-500"
               />
-              <h2 className="text-2xl font-bold text-white mb-1">{department.name}</h2>
+              <h2 className="mb-1 text-2xl font-bold tracking-tight text-slate-900">{department.name}</h2>
               {department.code && (
-                <span className="text-white/80 font-mono text-xs">{department.code}</span>
+                <span className="font-mono text-xs text-slate-600">{department.code}</span>
               )}
             </div>
 
-            {/* Right: HOD corner card — match dean card width and presence */}
-            <div className="flex-shrink-0 w-full lg:w-[420px] py-2">
-              {uploadError && (
-                <p className="text-amber-300 text-xs mb-1.5 bg-amber-900/30 px-2 py-1 rounded">{uploadError}</p>
-              )}
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3">
-                <div className="flex items-center gap-2 rounded-lg bg-slate-800/80 px-2.5 py-2 mb-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id="hod-photo-upload-dept"
-                    className="hidden"
-                    disabled={uploadingPhoto}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) uploadHodPhoto(f)
-                      e.target.value = ''
-                    }}
-                  />
-                  {department.hod_photo_url ? (
-                    <label
-                      htmlFor="hod-photo-upload-dept"
-                      className="relative w-12 h-12 rounded-lg flex-shrink-0 cursor-pointer group/avatar block"
-                      title="Click to change HOD photo"
-                    >
-                      <img
-                        src={department.hod_photo_url}
-                        alt={department.head_of_department || 'HOD'}
-                        className="w-full h-full rounded-lg object-cover border border-white/20"
-                      />
-                      <span className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-                        <Camera className="w-5 h-5 text-white" />
-                      </span>
-                    </label>
-                  ) : (
-                    <label
-                      htmlFor="hod-photo-upload-dept"
-                      className="w-12 h-12 rounded-lg bg-slate-600 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-slate-500 transition-colors group border border-dashed border-slate-500"
-                      title="Click to upload HOD photo"
-                    >
-                      {uploadingPhoto ? (
-                        <Loader2 className="w-5 h-5 text-slate-300 animate-spin" />
-                      ) : (
-                        <Camera className="w-5 h-5 text-slate-400 group-hover:text-white" />
-                      )}
-                    </label>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium text-slate-300 uppercase tracking-wide leading-tight whitespace-nowrap">
-                      Head of Department
-                    </p>
-                    <p className="text-white font-semibold text-sm leading-tight mt-0.5 whitespace-nowrap">
-                      {department.head_of_department || 'No HOD set'}
-                    </p>
-                  </div>
-                  <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium text-white/70 mb-1">Appointment Letter</p>
-                  {department.hod_appointment_letter_url ? (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <a
-                        href={department.hod_appointment_letter_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-cyan-400 hover:underline break-all"
-                      >
-                        View letter
-                      </a>
-                      <a
-                        href={department.hod_appointment_letter_url}
-                        download
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[10px] rounded transition-colors"
-                      >
-                        <Download className="w-3 h-3" />
-                        Download
-                      </a>
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="hod-letter-upload-dept"
-                      className="block text-xs text-white/50 hover:text-cyan-300 cursor-pointer transition-colors group hover:underline"
-                    >
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        id="hod-letter-upload-dept"
-                        className="hidden"
-                        disabled={uploadingLetter}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          if (f) uploadHodLetter(f)
-                          e.target.value = ''
-                        }}
-                      />
-                      {uploadingLetter ? (
-                        <span className="inline-flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</span>
-                      ) : (
-                        <span>No letter uploaded — click to upload</span>
-                      )}
-                    </label>
-                  )}
-                </div>
-              </div>
+            <div className="w-full shrink-0 lg:max-w-md lg:w-[400px]">
+              <UfpLeadershipPanel
+                roleLabel="Head of Department"
+                displayName={department.head_of_department}
+                emptyDisplayLabel="No HOD set"
+                photoUrl={department.hod_photo_url}
+                photoAlt={department.head_of_department || 'HOD'}
+                photoInputId="hod-photo-upload-dept"
+                letterInputId="hod-letter-upload-dept"
+                letterUrl={department.hod_appointment_letter_url}
+                uploadError={uploadError}
+                uploadingPhoto={uploadingPhoto}
+                uploadingLetter={uploadingLetter}
+                onPhotoChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadHodPhoto(f)
+                  e.target.value = ''
+                }}
+                onLetterChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadHodLetter(f)
+                  e.target.value = ''
+                }}
+                photoChangeOverlay
+                trailingSlot={<FileText className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+                letterIdleLabel="No letter uploaded — click to upload"
+                letterUploadingLabel="Uploading..."
+              />
             </div>
           </div>
         </motion.div>
 
-        {/* Content: Programs + Teaching Staff (single column) */}
         <div className="min-w-0">
 
-          {/* Programs section */}
-          <div className="mb-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <BookOpen className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="flex-1 flex items-center justify-between flex-wrap gap-2">
-                <h3 className="text-xl font-bold text-slate-900">Programs</h3>
-          <button
-            onClick={() =>
-              navigate(
-                `/ufp/programs?campusId=${campusId}&departmentId=${deptId}&returnTo=department`
-              )
-            }
-            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
-          >
-            <Plus className="w-5 h-5" />
-                Add Program
-              </button>
+          <section className="mb-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+            <div className="border-b border-blue-200/70 bg-blue-50/60 px-4 py-3.5 sm:px-5 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2.5">
+                  <BookOpen className="h-6 w-6 shrink-0 text-blue-600" aria-hidden />
+                  <h3 className="text-2xl font-bold tracking-tight text-slate-900">Programs</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/ufp/programs?campusId=${campusId}&departmentId=${deptId}&returnTo=department`
+                    )
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Program
+                </button>
               </div>
             </div>
+            <div className="p-4 sm:p-5">
             {programs.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search programs..."
-                    value={programSearch}
-                    onChange={(e) => setProgramSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-slate-500" />
-                  <select
-                    value={programCategoryFilter}
-                    onChange={(e) => setProgramCategoryFilter(e.target.value)}
-                    className="py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500"
-                  >
-                    <option value="">All categories</option>
-                    {programCategories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+              <div className="mb-5 space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="relative min-w-[min(100%,220px)] flex-1 sm:max-w-md">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search name, category, or degree level..."
+                      value={programSearch}
+                      onChange={(e) => setProgramSearch(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <SlidersHorizontal className="h-4 w-4 shrink-0 text-blue-600/80 max-sm:hidden" aria-hidden />
+                    <select
+                      value={programCategoryFilter}
+                      onChange={(e) => setProgramCategoryFilter(e.target.value)}
+                      className="min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by category"
+                    >
+                      <option value="">All categories</option>
+                      {programCategories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={programDegreeFilter}
+                      onChange={(e) => setProgramDegreeFilter(e.target.value)}
+                      className="min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by degree level"
+                    >
+                      <option value="">All degree levels</option>
+                      {programDegreeLevelFilterOptions.map((lvl) => (
+                        <option key={lvl} value={lvl}>{lvl}</option>
+                      ))}
+                    </select>
+                    {programDurations.length > 0 && (
+                      <select
+                        value={programDurationFilter}
+                        onChange={(e) => setProgramDurationFilter(e.target.value)}
+                        className="min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Filter by program duration"
+                      >
+                        <option value="">All durations</option>
+                        {programDurations.map((y) => (
+                          <option key={y} value={y}>
+                            {y} {y === '1' ? 'year' : 'years'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {programCreditOptions.length > 0 && (
+                      <select
+                        value={programCreditsFilter}
+                        onChange={(e) => setProgramCreditsFilter(e.target.value)}
+                        className="min-w-[10rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Filter by total credit hours"
+                      >
+                        <option value="">All credit hours</option>
+                        {programCreditOptions.map((c) => (
+                          <option key={c} value={c}>{c} credits</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
             {programs.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-            <p className="text-slate-600 mb-4">No programs yet.</p>
-            <button
-              onClick={() =>
-                navigate(
-                  `/ufp/programs?campusId=${campusId}&departmentId=${deptId}&returnTo=department`
-                )
-              }
-              className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
-            >
-              Add Program
-            </button>
-          </div>
-        ) : filteredPrograms.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-            <p className="text-slate-600">No programs match your search or filter.</p>
-            <button
-              type="button"
-              onClick={() => { setProgramSearch(''); setProgramCategoryFilter('') }}
-              className="mt-3 text-sm text-purple-600 hover:text-purple-800 font-medium"
-            >
-              Clear search & filter
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredPrograms.map((prog) => (
-              <motion.div
-                key={prog.id}
-                className="bg-white rounded-2xl border border-slate-200 border-t-4 border-t-purple-500 p-5 flex flex-col w-full min-w-0"
-              >
-                <h4 className="font-bold text-slate-900 text-lg mb-1">{prog.name}</h4>
-                {prog.category && (
-                  <span className="text-sm text-slate-500">{prog.category}</span>
-                )}
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <BookOpen className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="mb-4 text-sm text-slate-600">No programs yet.</p>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation()
+                  type="button"
+                  onClick={() =>
                     navigate(
-                      `/ufp/students?campusId=${campusId}&programId=${prog.id}&returnTo=department&returnCampusId=${campusId}&returnFacultyId=${facultyId}&returnDeptId=${deptId}`
+                      `/ufp/programs?campusId=${campusId}&departmentId=${deptId}&returnTo=department`
                     )
-                  }}
-                  className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                  }
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                 >
-                  <GraduationCap className="w-4 h-4" />
-                  Add / view enrollment
+                  Add Program
                 </button>
-              </motion.div>
-            ))}
-          </div>
-            )}
-          </div>
-
-          {/* Teaching Staff section */}
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <UserCheck className="w-5 h-5 text-blue-600" />
               </div>
-              <div className="flex-1 flex items-center justify-between flex-wrap gap-2">
-                <h3 className="text-xl font-bold text-slate-900">Teaching Staff</h3>
+            ) : filteredPrograms.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <p className="text-sm text-slate-600">No programs match your search or filter.</p>
                 <button
-            onClick={() =>
-              navigate(
-                `/ufp/staff?campusId=${campusId}&departmentId=${deptId}&staffType=Teaching&returnTo=department&returnFacultyId=${facultyId}`
-              )
-            }
-            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
-          >
-            <Plus className="w-5 h-5" />
-                Add Teaching Staff
-              </button>
+                  type="button"
+                  onClick={() => {
+                    setProgramSearch('')
+                    setProgramCategoryFilter('')
+                    setProgramDegreeFilter('')
+                    setProgramDurationFilter('')
+                    setProgramCreditsFilter('')
+                  }}
+                  className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800"
+                >
+                  Clear search & filters
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-slate-300 bg-slate-100">
+                      <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Program</th>
+                      <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Category</th>
+                      <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Degree</th>
+                      <th className="whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Duration</th>
+                      <th className="whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Credits</th>
+                      <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Enrollment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/80">
+                    {filteredPrograms.map((prog) => (
+                      <tr
+                        key={prog.id}
+                        className="odd:bg-white even:bg-slate-50/70 transition-colors hover:bg-blue-50/50"
+                      >
+                        <td className="px-4 py-3.5 font-medium text-slate-900">{prog.name}</td>
+                        <td className="px-4 py-3.5 text-slate-600">{prog.category || '—'}</td>
+                        <td className="px-4 py-3.5 text-slate-700">{prog.degree_level || '—'}</td>
+                        <td className="whitespace-nowrap px-4 py-3.5 text-slate-600">
+                          {prog.duration_years != null && prog.duration_years !== ''
+                            ? `${prog.duration_years} ${Number(prog.duration_years) === 1 ? 'yr' : 'yrs'}`
+                            : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3.5 text-slate-600">
+                          {prog.total_credit_hours != null && prog.total_credit_hours !== '' ? prog.total_credit_hours : '—'}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(
+                                `/ufp/students?campusId=${campusId}&programId=${prog.id}&returnTo=department&returnCampusId=${campusId}&returnFacultyId=${facultyId}&returnDeptId=${deptId}`
+                              )
+                            }}
+                            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            <GraduationCap className="h-4 w-4 shrink-0 text-blue-600" />
+                            Add / view enrollment
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm ring-1 ring-slate-200/70">
+            <div className="border-b border-blue-200/70 bg-blue-50/60 px-4 py-3.5 sm:px-5 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2.5">
+                  <UserCheck className="h-6 w-6 shrink-0 text-blue-600" aria-hidden />
+                  <h3 className="text-2xl font-bold tracking-tight text-slate-900">Teaching Staff</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/ufp/staff?campusId=${campusId}&departmentId=${deptId}&staffType=Teaching&returnTo=department&returnFacultyId=${facultyId}`
+                    )
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Teaching Staff
+                </button>
               </div>
             </div>
+            <div className="p-4 sm:p-5">
             {teachingStaff.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search staff by name..."
-                    value={staffSearch}
-                    onChange={(e) => setStaffSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-slate-500" />
-                  <select
-                    value={staffDesignationFilter}
-                    onChange={(e) => setStaffDesignationFilter(e.target.value)}
-                    className="py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-                  >
-                    <option value="">All designations</option>
-                    {staffDesignations.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+              <div className="mb-5 space-y-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+                  <div className="relative min-w-[min(100%,220px)] flex-1 lg:max-w-md">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search name, email, phone, qualification, specialization…"
+                      value={staffSearch}
+                      onChange={(e) => setStaffSearch(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <SlidersHorizontal className="h-4 w-4 shrink-0 text-blue-600/80 max-sm:hidden" aria-hidden />
+                    <select
+                      value={staffDesignationFilter}
+                      onChange={(e) => setStaffDesignationFilter(e.target.value)}
+                      className="min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by academic designation"
+                    >
+                      <option value="">All designations</option>
+                      {staffDesignationFilterOptions.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={staffEmploymentFilter}
+                      onChange={(e) => setStaffEmploymentFilter(e.target.value)}
+                      className="min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by employment type"
+                    >
+                      <option value="">All employment</option>
+                      {STAFF_EMPLOYMENT_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={staffAdminRoleFilter}
+                      onChange={(e) => setStaffAdminRoleFilter(e.target.value)}
+                      className="min-w-[10.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by administrative role"
+                    >
+                      <option value="">All admin roles</option>
+                      {STAFF_ADMINISTRATIVE_ROLE_OPTIONS.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={staffGenderFilter}
+                      onChange={(e) => setStaffGenderFilter(e.target.value)}
+                      className="min-w-[9rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      aria-label="Filter by gender"
+                    >
+                      <option value="">All genders</option>
+                      {STAFF_GENDER_OPTIONS.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
             {teachingStaff.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-            <UserCheck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-            <p className="text-slate-600 mb-4">No teaching staff yet.</p>
-            <button
-              onClick={() =>
-                navigate(
-                  `/ufp/staff?campusId=${campusId}&departmentId=${deptId}&staffType=Teaching&returnTo=department&returnFacultyId=${facultyId}`
-                )
-              }
-              className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
-            >
-              Add Teaching Staff
-            </button>
-          </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <UserCheck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="mb-4 text-sm text-slate-600">No teaching staff yet.</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/ufp/staff?campusId=${campusId}&departmentId=${deptId}&staffType=Teaching&returnTo=department&returnFacultyId=${facultyId}`
+                    )
+                  }
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  Add Teaching Staff
+                </button>
+              </div>
             ) : filteredTeachingStaff.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-            <p className="text-slate-600">No staff match your search or filter.</p>
-            <button
-              type="button"
-              onClick={() => { setStaffSearch(''); setStaffDesignationFilter('') }}
-              className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Clear search & filter
-            </button>
-          </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <p className="text-sm text-slate-600">No staff match your search or filter.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStaffSearch('')
+                    setStaffDesignationFilter('')
+                    setStaffEmploymentFilter('')
+                    setStaffAdminRoleFilter('')
+                    setStaffGenderFilter('')
+                  }}
+                  className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800"
+                >
+                  Clear search & filters
+                </button>
+              </div>
             ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredTeachingStaff.map((s) => (
-              <motion.div
-                key={s.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3 w-full min-w-0 hover:shadow-md transition-shadow"
-              >
-                <div className="flex-shrink-0">
-                  {s.profile_photo_url ? (
-                    <img
-                      src={s.profile_photo_url}
-                      alt=""
-                      className="w-14 h-14 rounded-full object-cover border-2 border-slate-200"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
-                      <User className="w-7 h-7 text-slate-400" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-slate-900 text-base">{s.full_name}</p>
-                  {displayDesignation(s) && (
-                    <p className="text-sm text-slate-600">{displayDesignation(s)}</p>
-                  )}
-                  {(s.qualification || s.specialization) && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {[s.qualification, s.specialization].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-slate-300 bg-slate-100">
+                      <th className="w-14 px-3 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900" aria-label="Photo" />
+                      <th className="min-w-[8rem] px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Name</th>
+                      <th className="min-w-[7rem] px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Designation</th>
+                      <th className="min-w-[9rem] px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Email</th>
+                      <th className="whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Phone</th>
+                      <th className="min-w-[6rem] px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Employment</th>
+                      <th className="min-w-[7rem] px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-900">Admin role</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/80">
+                    {filteredTeachingStaff.map((s) => (
+                      <tr
+                        key={s.id}
+                        className="odd:bg-white even:bg-slate-50/70 transition-colors hover:bg-blue-50/50"
+                      >
+                        <td className="px-3 py-3.5 align-middle">
+                          {s.profile_photo_url ? (
+                            <img
+                              src={s.profile_photo_url}
+                              alt=""
+                              className="h-10 w-10 rounded-md border border-slate-200 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-slate-100">
+                              <User className="h-5 w-5 text-slate-400" />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 align-middle font-medium text-slate-900">{s.full_name}</td>
+                        <td className="px-4 py-3.5 align-middle text-slate-600">{displayDesignation(s) || '—'}</td>
+                        <td className="max-w-[11rem] px-4 py-3.5 align-middle text-slate-600">
+                          {s.email ? (
+                            <a
+                              href={`mailto:${s.email}`}
+                              className="break-all text-sm font-medium text-blue-600 hover:text-blue-800"
+                            >
+                              {s.email}
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3.5 align-middle text-slate-600">{s.phone || '—'}</td>
+                        <td className="px-4 py-3.5 align-middle text-slate-600">{s.employment_type || '—'}</td>
+                        <td className="max-w-[9rem] px-4 py-3.5 align-middle text-slate-600" title={s.administrative_role || 'No Additional Role'}>
+                          <span className="line-clamp-2">{s.administrative_role || 'No Additional Role'}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
+            </div>
+          </section>
         </div>
-      </div>
-    </div>
+      </UfpAdminContainer>
+    </UfpAdminShell>
   )
 }
 

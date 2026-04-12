@@ -11,12 +11,11 @@ import {
   UserCheck,
   GraduationCap,
   Users,
-  User,
-  FileText,
-  Download,
-  Camera
+  User
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 
 function FacultyDetailView() {
   const navigate = useNavigate()
@@ -222,25 +221,19 @@ function FacultyDetailView() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   if (!campus || !faculty) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="text-center">
-          <Building2 className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Not Found</h2>
+          <Building2 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+          <h2 className="mb-3 text-xl font-semibold text-slate-900">Not Found</h2>
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             Back
           </button>
@@ -250,24 +243,22 @@ function FacultyDetailView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      <div className="w-full">
-        <div>
-        {/* Header + departments */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
         <div className="min-w-0">
           <motion.div
-            initial={{ y: -20, opacity: 0 }}
+            initial={{ y: -12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-6 lg:py-8 mb-8 rounded-t-3xl"
+            className="mb-10 rounded-xl border border-slate-200/90 border-t-2 border-t-blue-600 bg-gradient-to-br from-white via-blue-50/[0.07] to-slate-50 p-5 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/50 sm:mb-12 sm:p-6"
           >
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-              {/* Left: navigation + title */}
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
                 <button
+                  type="button"
                   onClick={() => navigate(-1)}
-                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold text-sm mb-5"
+                  className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="h-4 w-4" />
                   Back
                 </button>
                 <Breadcrumbs
@@ -277,156 +268,90 @@ function FacultyDetailView() {
                     { label: 'Faculties', path: `/ufp/campus/${campusId}/faculties` },
                     { label: faculty.name }
                   ]}
-                  className="text-white/80 text-sm mb-2"
+                  className="mb-2 text-sm text-slate-500"
                 />
-                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2 leading-tight">{faculty.name}</h2>
-                <div className="flex flex-wrap gap-3 text-white/90">
-                  <span className="px-3 py-1.5 bg-white/10 rounded-full font-mono text-sm">{faculty.code}</span>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/12 to-indigo-600/10 text-blue-700 shadow-sm ring-1 ring-blue-200/55"
+                    aria-hidden
+                  >
+                    <Building2 className="h-5 w-5" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="mb-2 text-2xl font-bold leading-tight tracking-tight text-slate-900 lg:text-3xl">
+                      {faculty.name}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs font-medium text-slate-700">
+                        {faculty.code}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Right: Dean corner card — wide horizontal pill, fixed width with vertical breathing space */}
-              <div className="flex-shrink-0 w-full lg:w-[420px] py-2">
-                {uploadError && (
-                  <p className="text-amber-300 text-xs mb-2 bg-amber-900/40 px-3 py-1.5 rounded-lg border border-amber-500/40">
-                    {uploadError}
-                  </p>
-                )}
-                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl shadow-slate-900/40">
-                  <div className="flex items-center gap-4 rounded-2xl bg-slate-800/90 px-3.5 py-3 mb-4">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="dean-photo-upload-faculty"
-                      className="hidden"
-                      disabled={uploadingPhoto}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) uploadDeanPhoto(f)
-                        e.target.value = ''
-                      }}
-                    />
-                    {faculty.dean_photo_url ? (
-                      <img
-                        src={faculty.dean_photo_url}
-                        alt={faculty.dean_name || 'Dean'}
-                        className="w-24 h-24 rounded-2xl object-cover flex-shrink-0 border-2 border-white/30 shadow-lg"
-                      />
-                    ) : (
-                      <label
-                        htmlFor="dean-photo-upload-faculty"
-                        className="w-24 h-24 rounded-2xl bg-slate-700 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-slate-600 transition-colors group border-2 border-dashed border-slate-500/80"
-                        title="Click to upload Dean photo"
-                      >
-                        {uploadingPhoto ? (
-                          <Loader2 className="w-8 h-8 text-slate-200 animate-spin" />
-                        ) : (
-                          <Camera className="w-9 h-9 text-slate-300 group-hover:text-white" />
-                        )}
-                      </label>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-[0.18em] whitespace-nowrap">
-                        Dean / Focal Person
-                      </p>
-                      <p className="text-white font-semibold text-lg leading-snug mt-1 whitespace-nowrap">
-                        {faculty.dean_name || 'No dean set'}
-                      </p>
-                      {faculty.dean_name && (
-                        <span className="inline-flex items-center mt-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-200 text-xs font-medium border border-emerald-400/30">
-                          <User className="w-3.5 h-3.5 mr-1" />
-                          Official Dean Record
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-white/70 mb-1.5 uppercase tracking-[0.16em]">
-                      Appointment Letter
-                    </p>
-                    {faculty.dean_appointment_letter_url ? (
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <a
-                          href={faculty.dean_appointment_letter_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline break-all"
-                        >
-                          View letter
-                        </a>
-                        <a
-                          href={faculty.dean_appointment_letter_url}
-                          download
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded-full transition-colors shadow-sm"
-                        >
-                          <Download className="w-4 h-4" />
-                          Download
-                        </a>
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor="dean-letter-upload-faculty"
-                        className="block text-sm text-white/50 hover:text-cyan-300 cursor-pointer transition-colors group"
-                      >
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          id="dean-letter-upload-faculty"
-                          className="hidden"
-                          disabled={uploadingLetter}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0]
-                            if (f) uploadDeanLetter(f)
-                            e.target.value = ''
-                          }}
-                        />
-                        {uploadingLetter ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm text-white/80">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Uploading&hellip;
-                          </span>
-                        ) : (
-                          <span className="group-hover:underline text-sm">
-                            No letter uploaded — upload signed appointment letter
-                          </span>
-                        )}
-                      </label>
-                    )}
-                  </div>
-                </div>
+              <div className="w-full shrink-0 lg:max-w-md lg:w-[400px]">
+                <UfpLeadershipPanel
+                  roleLabel="Dean / Focal Person"
+                  displayName={faculty.dean_name}
+                  emptyDisplayLabel="No dean set"
+                  photoUrl={faculty.dean_photo_url}
+                  photoAlt={faculty.dean_name || 'Dean'}
+                  photoInputId="dean-photo-upload-faculty"
+                  letterInputId="dean-letter-upload-faculty"
+                  letterUrl={faculty.dean_appointment_letter_url}
+                  uploadError={uploadError}
+                  uploadingPhoto={uploadingPhoto}
+                  uploadingLetter={uploadingLetter}
+                  onPhotoChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadDeanPhoto(f)
+                    e.target.value = ''
+                  }}
+                  onLetterChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadDeanLetter(f)
+                    e.target.value = ''
+                  }}
+                  showOfficialRecordBadge
+                />
               </div>
             </div>
           </motion.div>
 
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Departments</h3>
-              <button
-                onClick={() => navigate(`/ufp/departments?campusId=${campusId}&facultyId=${facultyId}&returnTo=faculty`)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
-              >
-                <Plus className="w-5 h-5" />
-                Add Department
-              </button>
+          <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/25 shadow-sm ring-1 ring-slate-200/40">
+            <div className="border-b border-blue-200/60 bg-gradient-to-r from-blue-50/90 via-blue-50/50 to-indigo-50/25 px-4 py-3.5 sm:px-6 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="border-l-4 border-l-blue-600 pl-3 text-2xl font-bold tracking-tight text-slate-900">Departments</h3>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/ufp/departments?campusId=${campusId}&facultyId=${facultyId}&returnTo=faculty`)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Department
+                </button>
+              </div>
             </div>
-
+            <div className="flex flex-col gap-5 p-4 sm:p-6">
             {departments.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl border border-slate-200 p-12 text-center"
+                className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm sm:p-12"
               >
-                <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-slate-600 mb-4">No departments yet. Add the first one to get started.</p>
+                <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                <p className="mb-4 text-sm text-slate-600">No departments yet. Add the first one to get started.</p>
                 <button
+                  type="button"
                   onClick={() => navigate(`/ufp/departments?campusId=${campusId}&facultyId=${facultyId}&returnTo=faculty`)}
-                  className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold"
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                 >
                   Add Department
                 </button>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 justify-items-stretch">
+              <div className="grid grid-cols-1 justify-items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-3">
                 {departments.map((dept, i) => {
                   const summ = departmentSummaries[dept.id] || { programs_count: 0, teaching_staff_count: 0, students_count: 0 }
                   const isActive = (dept.status || '').toLowerCase() === 'active'
@@ -437,88 +362,78 @@ function FacultyDetailView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04 }}
                       onClick={() => navigate(`/ufp/campus/${campusId}/faculty/${facultyId}/department/${dept.id}`)}
-                      className="relative bg-white rounded-3xl border border-slate-200/80 border-t-[4px] border-t-blue-600/90 w-full cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all shadow-sm flex flex-col px-6 py-5"
+                      className="relative flex w-full cursor-pointer flex-col rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-4 shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
                     >
-                      {/* Top: HOD image + department identity */}
-                      <div className="flex items-start gap-4 min-w-0 pb-4">
-                        <div className="flex-shrink-0">
+                      <div className="flex min-w-0 items-start gap-3 pb-3">
+                        <div className="shrink-0">
                           {dept.hod_photo_url ? (
                             <img
                               src={dept.hod_photo_url}
                               alt={dept.head_of_department || 'HOD'}
-                              className="w-24 h-24 rounded-2xl object-cover border-2 border-slate-200 shadow-md"
+                              className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
                             />
                           ) : (
                             <div
-                              className="w-24 h-24 rounded-2xl bg-slate-50 border-2 border-slate-200 flex items-center justify-center"
+                              className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-200 bg-slate-50"
                               title="No HOD photo"
                             >
-                              <User className="w-11 h-11 text-slate-400" />
+                              <User className="h-8 w-8 text-slate-400" />
                             </div>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1 pt-0.5 space-y-1">
-                          <h4 className="font-bold text-slate-950 text-xl leading-snug break-words">
+                        <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+                          <h4 className="break-words text-base font-semibold leading-snug text-slate-900">
                             {dept.name}
                           </h4>
                           {dept.code && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-mono">
+                            <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-600">
                               {dept.code}
                             </span>
                           )}
                         </div>
                       </div>
-                      {/* HOD name + status */}
-                      <div className="flex flex-wrap items-center gap-2.5 min-w-0 pb-4">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 pb-3">
                         {dept.head_of_department && (
                           <span
-                            className="px-3.5 py-1.5 bg-slate-900 text-white text-sm font-semibold rounded-full whitespace-nowrap min-w-0 max-w-full truncate"
+                            className="max-w-full truncate rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-800"
                             title={dept.head_of_department}
                           >
                             HOD: {dept.head_of_department}
                           </span>
                         )}
                         <span
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-full flex-shrink-0 border ${
+                          className={`shrink-0 rounded-md border px-2 py-1 text-xs font-medium ${
                             isActive
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-slate-50 text-slate-600 border-slate-200'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
                           }`}
                         >
                           {dept.status || 'Active'}
                         </span>
                       </div>
-                      {/* Stats band */}
-                      <div className="mt-auto pt-3 border-t border-slate-200/80">
-                        <div className="mt-2 grid grid-cols-3 gap-2 bg-slate-50 rounded-2xl px-3 py-3">
-                          <span className="flex flex-col items-center gap-0.5 text-center">
-                            <BookOpen className="w-4 h-4 text-amber-600 shrink-0 mx-auto" />
-                            <span className="text-sm font-semibold tabular-nums text-slate-900">
-                              {summ.programs_count}
-                            </span>
-                            <span className="text-[11px] text-slate-500">Programs</span>
+                      <div className="mt-auto border-t border-slate-200 pt-3">
+                        <div className="flex items-stretch justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-100/90 px-4 py-4 sm:gap-4">
+                          <span className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+                            <BookOpen className="mx-auto h-5 w-5 shrink-0 text-amber-500" strokeWidth={2} aria-hidden />
+                            <span className="text-xl font-bold tabular-nums leading-none text-slate-900">{summ.programs_count}</span>
+                            <span className="text-[11px] font-medium text-slate-500">Programs</span>
                           </span>
-                          <span className="flex flex-col items-center gap-0.5 text-center">
-                            <UserCheck className="w-4 h-4 text-emerald-600 shrink-0 mx-auto" />
-                            <span className="text-sm font-semibold tabular-nums text-slate-900">
-                              {summ.teaching_staff_count}
-                            </span>
-                            <span className="text-[11px] text-slate-500">Staff</span>
+                          <span className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+                            <UserCheck className="mx-auto h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2} aria-hidden />
+                            <span className="text-xl font-bold tabular-nums leading-none text-slate-900">{summ.teaching_staff_count}</span>
+                            <span className="text-[11px] font-medium text-slate-500">Staff</span>
                           </span>
-                          <span className="flex flex-col items-center gap-0.5 text-center">
-                            <GraduationCap className="w-4 h-4 text-pink-500 shrink-0 mx-auto" />
-                            <span className="text-sm font-semibold tabular-nums text-slate-900">
-                              {summ.students_count}
-                            </span>
-                            <span className="text-[11px] text-slate-500">Students</span>
+                          <span className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+                            <GraduationCap className="mx-auto h-5 w-5 shrink-0 text-pink-600" strokeWidth={2} aria-hidden />
+                            <span className="text-xl font-bold tabular-nums leading-none text-slate-900">{summ.students_count}</span>
+                            <span className="text-[11px] font-medium text-slate-500">Students</span>
                           </span>
                         </div>
                       </div>
-                      {/* Link */}
-                      <div className="pt-3">
-                        <p className="text-xs font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1.5">
+                      <div className="pt-2">
+                        <p className="flex items-center gap-1 text-xs font-medium text-blue-600">
                           View programs & teaching staff
-                          <ArrowLeft className="w-4 h-4 rotate-180 shrink-0" />
+                          <ArrowLeft className="h-3.5 w-3.5 shrink-0 rotate-180" />
                         </p>
                       </div>
                     </motion.div>
@@ -526,11 +441,11 @@ function FacultyDetailView() {
                 })}
               </div>
             )}
-          </div>
+            </div>
+          </section>
         </div>
-        </div>
-      </div>
-    </div>
+      </UfpAdminContainer>
+    </UfpAdminShell>
   )
 }
 

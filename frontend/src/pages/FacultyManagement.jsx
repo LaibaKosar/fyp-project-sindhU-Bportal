@@ -17,8 +17,10 @@ import {
   UserCheck,
   GraduationCap,
   Info,
+  ChevronRight,
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 
 const FACULTY_NAMES = [
@@ -489,32 +491,28 @@ function FacultyManagement() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl">Loading...</div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
+    <UfpAdminShell>
+      <UfpAdminContainer>
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
+        initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
+        className="mb-10 rounded-xl border border-slate-200/90 border-t-2 border-t-blue-600 bg-gradient-to-br from-white via-blue-50/[0.07] to-slate-50 p-5 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/50 sm:mb-12 sm:p-6"
       >
-        {/* Back Button */}
         <motion.button
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
         >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </motion.button>
 
         <Breadcrumbs
@@ -522,238 +520,466 @@ function FacultyManagement() {
             { label: 'Dashboard', path: '/ufp-dashboard' },
             { label: campusName ? `Faculties - ${campusName}` : 'Faculty Management' }
           ]}
-          className="text-white/80 mb-2"
+          className="mb-2 text-sm text-slate-500"
         />
 
-        {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold text-white mb-2">
-            {campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
-          </h2>
-          <p className="text-white/90">
-            {campusName 
-              ? `Manage faculties for ${campusName}`
-              : 'Manage your university\'s faculties and departments'
-            }
-          </p>
+        <div className="flex items-start gap-4">
+          <div
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/12 to-indigo-600/10 text-blue-700 shadow-sm ring-1 ring-blue-200/55"
+            aria-hidden
+          >
+            <Building2 className="h-5 w-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              {campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
+            </h2>
+            <p className="text-sm text-slate-600 sm:text-base">
+              {campusName
+                ? `Manage faculties for ${campusName}`
+                : "Manage your university's faculties and departments"}
+            </p>
+          </div>
         </div>
       </motion.div>
 
-      {/* Gallery Grid */}
+      {/* Faculty list: table (lg+), stacked cards (mobile) */}
       {faculties.length === 0 ? (
-        /* Empty State */
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-16 border border-slate-100 text-center max-w-2xl mx-auto"
+          className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm sm:p-16"
         >
-          <Building2 className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-3">No Faculties Yet</h3>
-          <p className="text-slate-600 mb-8 text-lg">Get started by adding your first faculty to begin organizing your university structure.</p>
+          <Building2 className="mx-auto mb-6 h-16 w-16 text-slate-300 sm:h-24 sm:w-24" />
+          <h3 className="mb-3 text-xl font-bold text-slate-900 sm:text-2xl">No Faculties Yet</h3>
+          <p className="mb-8 text-slate-600">Get started by adding your first faculty to begin organizing your university structure.</p>
           <button
+            type="button"
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg text-lg"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="h-5 w-5" />
             <span>Add First Faculty</span>
           </button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Quick Add Card - Always First */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            onClick={() => setShowForm(true)}
-            className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[10px] border-t-blue-600 p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[280px]"
-          >
-            <div className="w-20 h-20 rounded-full bg-cyan-100 flex items-center justify-center mb-4">
-              <Plus className="w-10 h-10 text-cyan-600" />
-            </div>
-            <button className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg">
+        <section className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/25 p-3 shadow-sm ring-1 ring-slate-200/40 sm:p-4">
+          {/* Desktop: data table */}
+          <div className="mb-4 hidden items-center justify-end lg:flex">
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
               Add Faculty
             </button>
-          </motion.div>
-
-          {/* Faculty Cards – Premium LHS/RHS split + hover insight */}
-          {faculties.map((faculty, index) => {
-            const summary = summaryByFaculty[faculty.id] || {
-              departments_count: 0,
-              programs_count: 0,
-              teaching_staff_count: 0,
-              students_count: 0
-            }
-            const campusIdForNav = campusId || faculty.campus_id
-            const d = summary.departments_count
-            const p = summary.programs_count
-            const t = summary.teaching_staff_count
-            const s = summary.students_count
-            const insightParts = []
-            if (d) insightParts.push(`${d} Department${d !== 1 ? 's' : ''}`)
-            if (p) insightParts.push(`${p} Program${p !== 1 ? 's' : ''}`)
-            if (t) insightParts.push(`${t} Teaching Staff`)
-            if (s) insightParts.push(`${s} Student${s !== 1 ? 's' : ''}`)
-            const insightText = insightParts.length
-              ? `Overseeing ${insightParts.join(', ')}.`
-              : 'No departments or students recorded yet.'
-            return (
-              <motion.div
-                key={faculty.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
-                onClick={() => campusIdForNav && navigate(`/ufp/campus/${campusIdForNav}/faculty/${faculty.id}`)}
-                className="group relative bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[10px] border-t-blue-600 p-8 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer min-h-[340px] flex flex-col"
-                title={insightText}
-              >
-                {/* Delete Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDelete(faculty.id)
-                  }}
-                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-900 hover:bg-red-600 flex items-center justify-center transition-colors z-10"
-                  title="Delete faculty"
-                >
-                  <Trash2 className="w-4 h-4 text-white" />
-                </button>
-
-                {/* Half-half: LHS = emblem + dean | RHS = name/code top, stats bottom — attached, center-aligned */}
-                <div className="flex flex-1 min-h-0 gap-2 items-center justify-center">
-                  {/* LHS: Larger emblem + larger dean text, less empty space */}
-                  <div className="flex flex-col justify-center items-center flex-1 min-w-0 py-1">
-                    {faculty.emblem_url ? (
-                      <div className="w-40 h-40 rounded-2xl border-2 border-slate-200 flex items-center justify-center overflow-hidden bg-white shadow-sm flex-shrink-0">
-                        <img src={faculty.emblem_url} alt={faculty.name} className="w-full h-full object-contain p-2" />
-                      </div>
-                    ) : (
-                      <div className="w-40 h-40 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-20 h-20 text-slate-400" />
-                      </div>
-                    )}
-                    <p className="text-base text-slate-700 text-center mt-2 font-semibold">
-                      Dean: {faculty.dean_name || '—'}
-                    </p>
-                  </div>
-
-                  {/* RHS: Grey box + stats attached; stats larger than name box; both enlarged */}
-                  <div className="flex flex-col flex-1 min-w-0 overflow-hidden rounded-xl border border-slate-200/60">
-                    <div className="flex flex-col justify-center py-3 px-4 rounded-t-xl bg-slate-50/80 border-b border-slate-200/60 text-center">
-                      <h3 className="text-base font-semibold text-slate-700 line-clamp-2" style={{ fontFamily: 'system-ui' }}>
-                        {faculty.name}
-                      </h3>
-                      <span className="mt-1 text-sm font-mono text-slate-500">{faculty.code}</span>
-                      {!campusId && faculty.campuses?.name && (
-                        <span className="mt-1.5 text-xs text-slate-400">📍 {faculty.campuses.name}</span>
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
+            <table className="w-full min-w-[1024px] border-collapse text-left text-sm text-slate-700">
+              <thead>
+                <tr className="border-b-2 border-slate-300 bg-gradient-to-r from-slate-100 via-blue-50/30 to-slate-100">
+                  <th
+                    scope="col"
+                    className="px-4 py-3.5 text-left text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Faculty
+                  </th>
+                  <th scope="col" className="w-24 px-3 py-3.5 text-left text-sm font-bold leading-snug tracking-tight text-slate-900">
+                    Code
+                  </th>
+                  <th
+                    scope="col"
+                    className="min-w-[10rem] px-3 py-3.5 text-left text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Dean
+                  </th>
+                  {!campusId && (
+                    <th
+                      scope="col"
+                      className="min-w-[8rem] px-3 py-3.5 text-left text-sm font-bold leading-snug tracking-tight text-slate-900"
+                    >
+                      Campus
+                    </th>
+                  )}
+                  <th
+                    scope="col"
+                    className="w-[4.5rem] px-2 py-3.5 text-center text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Depts
+                  </th>
+                  <th
+                    scope="col"
+                    className="w-[4.75rem] px-2 py-3.5 text-center text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Programs
+                  </th>
+                  <th
+                    scope="col"
+                    className="w-[4.5rem] px-2 py-3.5 text-center text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Staff
+                  </th>
+                  <th
+                    scope="col"
+                    className="w-[4.75rem] px-2 py-3.5 text-center text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Students
+                  </th>
+                  <th
+                    scope="col"
+                    className="w-36 px-3 py-3.5 text-right text-sm font-bold leading-snug tracking-tight text-slate-900"
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/80">
+                {faculties.map((faculty) => {
+                  const summary = summaryByFaculty[faculty.id] || {
+                    departments_count: 0,
+                    programs_count: 0,
+                    teaching_staff_count: 0,
+                    students_count: 0
+                  }
+                  const campusIdForNav = campusId || faculty.campus_id
+                  const d = summary.departments_count
+                  const p = summary.programs_count
+                  const t = summary.teaching_staff_count
+                  const s = summary.students_count
+                  const go = () => {
+                    if (campusIdForNav) navigate(`/ufp/campus/${campusIdForNav}/faculty/${faculty.id}`)
+                  }
+                  return (
+                    <tr
+                      key={faculty.id}
+                      className="cursor-pointer odd:bg-white even:bg-slate-50/70 transition-colors hover:bg-blue-50/50"
+                      onClick={go}
+                    >
+                      <td className="max-w-md px-4 py-3.5 align-top">
+                        <div className="flex gap-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            {faculty.emblem_url ? (
+                              <img src={faculty.emblem_url} alt="" className="h-full w-full object-contain p-1" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-slate-50">
+                                <Building2 className="h-6 w-6 text-slate-400" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="min-w-0 break-words font-medium leading-snug text-slate-900" title={faculty.name}>
+                            {faculty.name}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3.5 align-top font-mono text-xs text-slate-600">{faculty.code || '—'}</td>
+                      <td className="px-3 py-3.5 align-top break-words text-slate-700" title={faculty.dean_name || ''}>
+                        {faculty.dean_name || '—'}
+                      </td>
+                      {!campusId && (
+                        <td className="px-3 py-3.5 align-top break-words text-slate-600">{faculty.campuses?.name || '—'}</td>
                       )}
-                    </div>
-                    <div className="bg-slate-800 text-white py-4 px-5 flex flex-col justify-center gap-2.5 rounded-b-xl">
-                      <div
-                        className="flex items-center justify-center gap-2.5 relative"
+                      <td
+                        className="relative px-2 py-3.5 text-center align-middle tabular-nums"
                         onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('depts') }}
                         onMouseLeave={() => setHoverMetric(null)}
                       >
-                        <Building2 className="w-5 h-5 text-cyan-400 shrink-0" />
-                        <span className="text-base font-bold tabular-nums">{d}</span>
-                        <span className="text-sm text-slate-300">Depts</span>
+                        <span className="inline-flex items-center justify-center gap-1 text-slate-800">
+                          <Building2 className="h-4 w-4 shrink-0 text-blue-600" strokeWidth={2} />
+                          {d}
+                        </span>
                         {hoverFacultyId === faculty.id && hoverMetric === 'depts' && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 z-20 border border-slate-700">
-                            <h4 className="text-sm font-semibold mb-2">Departments in {faculty.code || faculty.name}</h4>
-                            {(departmentsByFaculty[faculty.id]?.length) ? (
-                              <ul className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                          <div className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                            <h4 className="mb-2 text-xs font-semibold">Departments — {faculty.code || faculty.name}</h4>
+                            {departmentsByFaculty[faculty.id]?.length ? (
+                              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
                                 {departmentsByFaculty[faculty.id].map((dpt) => (
-                                  <li key={dpt.id} className="flex items-center gap-2">
-                                    <Building2 className="w-4 h-4 text-cyan-300 shrink-0" />
+                                  <li key={dpt.id} className="flex gap-2">
+                                    <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-300" />
                                     <span>{dpt.name}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-sm text-slate-300">No departments registered yet.</p>
+                              <p className="text-xs text-slate-300">No departments yet.</p>
                             )}
                           </div>
                         )}
-                      </div>
-                      <div
-                        className="flex items-center justify-center gap-2.5 relative"
+                      </td>
+                      <td
+                        className="relative px-2 py-3.5 text-center align-middle tabular-nums text-slate-800"
                         onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('programs') }}
                         onMouseLeave={() => setHoverMetric(null)}
                       >
-                        <BookOpen className="w-5 h-5 text-amber-400 shrink-0" />
-                        <span className="text-base font-bold tabular-nums">{p}</span>
-                        <span className="text-sm text-slate-300">Programs</span>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          <BookOpen className="h-4 w-4 shrink-0 text-amber-500" strokeWidth={2} />
+                          {p}
+                        </span>
                         {hoverFacultyId === faculty.id && hoverMetric === 'programs' && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 z-20 border border-slate-700">
-                            <h4 className="text-sm font-semibold mb-2">Programs offered</h4>
-                            {(programsByFaculty[faculty.id]?.length) ? (
-                              <ul className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                          <div className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                            <h4 className="mb-2 text-xs font-semibold">Programs</h4>
+                            {programsByFaculty[faculty.id]?.length ? (
+                              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
                                 {programsByFaculty[faculty.id].map((prog) => (
-                                  <li key={prog.id} className="flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-amber-300 shrink-0" />
+                                  <li key={prog.id} className="flex gap-2">
+                                    <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
                                     <span>{prog.name}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-sm text-slate-300">No programs registered yet.</p>
+                              <p className="text-xs text-slate-300">No programs yet.</p>
                             )}
                           </div>
                         )}
-                      </div>
-                      <div
-                        className="flex items-center justify-center gap-2.5 relative"
+                      </td>
+                      <td
+                        className="relative px-2 py-3.5 text-center align-middle tabular-nums text-slate-800"
                         onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('staff') }}
                         onMouseLeave={() => setHoverMetric(null)}
                       >
-                        <UserCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-                        <span className="text-base font-bold tabular-nums">{t}</span>
-                        <span className="text-sm text-slate-300">Staff</span>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          <UserCheck className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />
+                          {t}
+                        </span>
                         {hoverFacultyId === faculty.id && hoverMetric === 'staff' && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 z-20 border border-slate-700">
-                            <h4 className="text-sm font-semibold mb-2">Teaching staff</h4>
-                            {(staffByFaculty[faculty.id]?.length) ? (
-                              <ul className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                          <div className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                            <h4 className="mb-2 text-xs font-semibold">Teaching staff</h4>
+                            {staffByFaculty[faculty.id]?.length ? (
+                              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
                                 {staffByFaculty[faculty.id].map((st) => (
-                                  <li key={st.id} className="flex items-center gap-2">
-                                    <UserCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                                  <li key={st.id} className="flex gap-2">
+                                    <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
                                     <span>{st.full_name}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-sm text-slate-300">No teaching staff recorded yet.</p>
+                              <p className="text-xs text-slate-300">No staff yet.</p>
                             )}
                           </div>
                         )}
-                      </div>
-                      <div
-                        className="flex items-center justify-center gap-2.5 relative"
+                      </td>
+                      <td
+                        className="relative px-2 py-3.5 text-center align-middle tabular-nums text-slate-800"
                         onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('students') }}
                         onMouseLeave={() => setHoverMetric(null)}
                       >
-                        <GraduationCap className="w-5 h-5 text-pink-400 shrink-0" />
-                        <span className="text-base font-bold tabular-nums">{s}</span>
-                        <span className="text-sm text-slate-300">Students</span>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          <GraduationCap className="h-4 w-4 shrink-0 text-pink-600" strokeWidth={2} />
+                          {s}
+                        </span>
                         {hoverFacultyId === faculty.id && hoverMetric === 'students' && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 z-20 border border-slate-700">
-                            <h4 className="text-sm font-semibold mb-1">Student summary</h4>
-                            <p className="text-2xl font-bold mb-2">{s}</p>
-                            <p className="text-xs text-slate-300">
-                              Total students currently enrolled in programs under this faculty (from the latest enrollment reports).
-                            </p>
+                          <div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                            <h4 className="mb-1 text-xs font-semibold">Students</h4>
+                            <p className="text-lg font-bold">{s}</p>
+                            <p className="text-[11px] text-slate-300">From latest enrollment reports for programs under this faculty.</p>
                           </div>
                         )}
+                      </td>
+                      <td className="px-3 py-3.5 text-right align-middle">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              go()
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            Open
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(faculty.id)
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                            title="Delete faculty"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile / tablet: quick add + stacked cards */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:hidden">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => setShowForm(true)}
+              className="flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 border-l-4 border-l-blue-600 bg-white p-6 shadow-sm transition-shadow hover:border-slate-400 hover:shadow-md"
+            >
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+                <Plus className="h-6 w-6 text-blue-600" />
+              </div>
+              <span className="text-sm font-semibold text-slate-800">Add Faculty</span>
+              <span className="mt-1 text-center text-xs text-slate-500">Create a new faculty record</span>
+            </motion.div>
+
+            {faculties.map((faculty, index) => {
+              const summary = summaryByFaculty[faculty.id] || {
+                departments_count: 0,
+                programs_count: 0,
+                teaching_staff_count: 0,
+                students_count: 0
+              }
+              const campusIdForNav = campusId || faculty.campus_id
+              const d = summary.departments_count
+              const p = summary.programs_count
+              const t = summary.teaching_staff_count
+              const s = summary.students_count
+              const insightParts = []
+              if (d) insightParts.push(`${d} dept${d !== 1 ? 's' : ''}`)
+              if (p) insightParts.push(`${p} prog`)
+              if (t) insightParts.push(`${t} staff`)
+              if (s) insightParts.push(`${s} stud`)
+              const insightText = insightParts.length ? insightParts.join(' · ') : 'No activity yet'
+              return (
+                <motion.div
+                  key={faculty.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: (index + 1) * 0.05 }}
+                  onClick={() => campusIdForNav && navigate(`/ufp/campus/${campusIdForNav}/faculty/${faculty.id}`)}
+                  className="relative flex cursor-pointer flex-col rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-5 shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
+                  title={insightText}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(faculty.id)
+                    }}
+                    className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    title="Delete faculty"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <div className="mb-3 flex justify-center">
+                    {faculty.emblem_url ? (
+                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <img src={faculty.emblem_url} alt="" className="h-full w-full object-contain p-1" />
                       </div>
+                    ) : (
+                      <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
+                        <Building2 className="h-10 w-10 text-slate-400" />
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="mb-1 break-words text-center text-base font-semibold leading-snug text-slate-900" title={faculty.name}>
+                    {faculty.name}
+                  </h3>
+                  <p className="mb-1 text-center font-mono text-xs text-slate-500">{faculty.code}</p>
+                  {!campusId && faculty.campuses?.name && (
+                    <p className="mb-2 text-center text-xs text-slate-500">{faculty.campuses.name}</p>
+                  )}
+                  <p className="mb-3 text-center text-sm text-slate-600">Dean: {faculty.dean_name || '—'}</p>
+                  <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-sm">
+                    <div
+                      className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
+                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('depts') }}
+                      onMouseLeave={() => setHoverMetric(null)}
+                    >
+                      <Building2 className="h-4 w-4 text-blue-600" strokeWidth={2} />
+                      <span className="font-semibold tabular-nums">{d}</span>
+                      <span className="text-xs text-slate-500">Depts</span>
+                      {hoverFacultyId === faculty.id && hoverMetric === 'depts' && (
+                        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                          <h4 className="mb-2 text-xs font-semibold">Departments</h4>
+                          {departmentsByFaculty[faculty.id]?.length ? (
+                            <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                              {departmentsByFaculty[faculty.id].map((dpt) => (
+                                <li key={dpt.id}>{dpt.name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-300">None yet.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
+                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('programs') }}
+                      onMouseLeave={() => setHoverMetric(null)}
+                    >
+                      <BookOpen className="h-4 w-4 text-amber-500" strokeWidth={2} />
+                      <span className="font-semibold tabular-nums">{p}</span>
+                      <span className="text-xs text-slate-500">Prog</span>
+                      {hoverFacultyId === faculty.id && hoverMetric === 'programs' && (
+                        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                          <h4 className="mb-2 text-xs font-semibold">Programs</h4>
+                          {programsByFaculty[faculty.id]?.length ? (
+                            <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                              {programsByFaculty[faculty.id].map((prog) => (
+                                <li key={prog.id}>{prog.name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-300">None yet.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
+                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('staff') }}
+                      onMouseLeave={() => setHoverMetric(null)}
+                    >
+                      <UserCheck className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+                      <span className="font-semibold tabular-nums">{t}</span>
+                      <span className="text-xs text-slate-500">Staff</span>
+                      {hoverFacultyId === faculty.id && hoverMetric === 'staff' && (
+                        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                          <h4 className="mb-2 text-xs font-semibold">Staff</h4>
+                          {staffByFaculty[faculty.id]?.length ? (
+                            <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                              {staffByFaculty[faculty.id].map((st) => (
+                                <li key={st.id}>{st.full_name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-300">None yet.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
+                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('students') }}
+                      onMouseLeave={() => setHoverMetric(null)}
+                    >
+                      <GraduationCap className="h-4 w-4 text-pink-600" strokeWidth={2} />
+                      <span className="font-semibold tabular-nums">{s}</span>
+                      <span className="text-xs text-slate-500">Stud</span>
+                      {hoverFacultyId === faculty.id && hoverMetric === 'students' && (
+                        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-56 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
+                          <p className="text-lg font-bold">{s}</p>
+                          <p className="text-[11px] text-slate-300">Enrollment total</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
+                  <p className="mt-3 text-center text-xs font-medium text-blue-700">Tap to open faculty</p>
+                </motion.div>
+              )
+            })}
+          </div>
+        </section>
       )}
+
+      </UfpAdminContainer>
 
       {/* Modal Form */}
       <AnimatePresence>
@@ -1043,7 +1269,7 @@ function FacultyManagement() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </UfpAdminShell>
   )
 }
 
