@@ -454,7 +454,8 @@ function CampusManagement() {
             { label: 'Dashboard', path: '/ufp-dashboard' },
             { label: 'Campus Management' }
           ]}
-          className="text-white/80 mb-2"
+          variant="onDark"
+          className="mb-2"
         />
 
         {/* Header */}

@@ -360,7 +360,7 @@ function MeetingManagement() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
+        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -383,11 +383,21 @@ function MeetingManagement() {
         />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Meeting Management</h2>
-            <p className="text-sm text-slate-600 sm:text-base">
-              Official records and audit trail for all university meetings
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-3">
+              <div
+                className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
+                aria-hidden
+              >
+                <Calendar className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Meeting Management</h2>
+                <p className="text-sm text-slate-600 sm:text-base">
+                  Official records and audit trail for all university meetings
+                </p>
+              </div>
+            </div>
           </div>
           <button
             type="button"

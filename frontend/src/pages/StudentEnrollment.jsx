@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
-  Trash2, 
   Plus, 
   Loader2,
   X,
   ArrowLeft,
   UsersRound,
-  MapPin,
-  TrendingUp
+  GraduationCap
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import EnrollmentReportCard from '../components/EnrollmentReportCard'
+import EnrollmentReportDetailModal from '../components/EnrollmentReportDetailModal'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 
 // Academic Years (2024-2030)
@@ -34,9 +34,6 @@ function StudentEnrollment() {
   const [searchParams] = useSearchParams()
   const campusId = searchParams.get('campusId')
   const programIdParam = searchParams.get('programId')
-  const returnTo = searchParams.get('returnTo')
-  const returnCampusId = searchParams.get('returnCampusId')
-  const returnFacultyId = searchParams.get('returnFacultyId')
   const returnDeptId = searchParams.get('returnDeptId')
   
   const [loading, setLoading] = useState(true)
@@ -47,6 +44,7 @@ function StudentEnrollment() {
   const [programs, setPrograms] = useState([])
   const [toast, setToast] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [detailEnrollment, setDetailEnrollment] = useState(null)
   const [campusName, setCampusName] = useState(null)
 
   // Form state (programId pre-filled from URL when opening from Department Detail)
@@ -86,6 +84,11 @@ function StudentEnrollment() {
   useEffect(() => {
     if (programIdParam) setProgramId(programIdParam)
   }, [programIdParam])
+
+  /** Re-apply URL program when opening the modal (param unchanged → first useEffect does not re-run). */
+  useEffect(() => {
+    if (showForm && programIdParam) setProgramId(programIdParam)
+  }, [showForm, programIdParam])
 
   const loadUserData = async () => {
     try {
@@ -180,7 +183,7 @@ function StudentEnrollment() {
     try {
       let query = supabase
         .from('enrollment_reports')
-        .select('*, programs:program_id(name), campuses:campus_id(name)')
+        .select('*, programs:program_id(name, departments:department_id(name)), campuses:campus_id(name)')
         .eq('university_id', user.university_id)
 
       if (campusId) {
@@ -254,8 +257,8 @@ function StudentEnrollment() {
 
       showToast('Enrollment report added successfully!', 'success')
       
-      // Clear form
-      setProgramId('')
+      // Clear form; keep URL-prefilled campus / program so the next add works without re-selecting
+      setProgramId(programIdParam || '')
       setAcademicYear('')
       setSemester('')
       setMaleStudents('')
@@ -264,10 +267,6 @@ function StudentEnrollment() {
       
       await fetchEnrollments()
       setShowForm(false)
-
-      if (returnTo === 'department' && returnCampusId && returnFacultyId && returnDeptId) {
-        navigate(`/ufp/campus/${returnCampusId}/faculty/${returnFacultyId}/department/${returnDeptId}`)
-      }
     } catch (error) {
       console.error('Error saving enrollment report:', error)
       showToast(error.message || 'Error saving enrollment report', 'error')
@@ -302,6 +301,35 @@ function StudentEnrollment() {
     setTimeout(() => setToast(null), 5000)
   }
 
+  /** Semesters that already have an enrollment report for the same campus + program + academic year. */
+  const takenSemestersForForm = useMemo(() => {
+    if (!selectedCampusId || !programId || !academicYear) return new Set()
+    const taken = new Set()
+    for (const r of enrollments) {
+      if (
+        r.campus_id === selectedCampusId &&
+        r.program_id === programId &&
+        r.academic_year === academicYear &&
+        r.semester
+      ) {
+        taken.add(r.semester)
+      }
+    }
+    return taken
+  }, [enrollments, selectedCampusId, programId, academicYear])
+
+  useEffect(() => {
+    if (semester && takenSemestersForForm.has(semester)) {
+      setSemester('')
+    }
+  }, [takenSemestersForForm, semester])
+
+  const openEnrollmentForm = () => {
+    if (campusId) setSelectedCampusId(campusId)
+    if (programIdParam) setProgramId(programIdParam)
+    setShowForm(true)
+  }
+
   if (loading) {
     return <UfpAdminLoadingCenter />
   }
@@ -313,7 +341,7 @@ function StudentEnrollment() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
+        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -335,11 +363,19 @@ function StudentEnrollment() {
           className="mb-2 text-sm text-slate-500"
         />
 
-        <div>
-          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Student Enrollment</h2>
-          <p className="text-sm text-slate-600 sm:text-base">
-            {campusId ? `Manage enrollment reports for ${campusName || 'this campus'}` : 'Manage your university enrollment reports'}
-          </p>
+        <div className="flex items-start gap-4">
+          <div
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
+            aria-hidden
+          >
+            <GraduationCap className="h-5 w-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Student Enrollment</h2>
+            <p className="text-sm text-slate-600 sm:text-base">
+              {campusId ? `Manage enrollment reports for ${campusName || 'this campus'}` : 'Manage your university enrollment reports'}
+            </p>
+          </div>
         </div>
       </motion.div>
 
@@ -356,7 +392,7 @@ function StudentEnrollment() {
           <p className="mb-8 text-slate-600">Get started by adding your first enrollment report.</p>
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={openEnrollmentForm}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
           >
             <Plus className="h-5 w-5" />
@@ -370,7 +406,7 @@ function StudentEnrollment() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            onClick={() => setShowForm(true)}
+            onClick={openEnrollmentForm}
             className="flex min-h-[220px] w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 border-l-4 border-l-blue-600 bg-white p-6 shadow-sm transition-shadow hover:border-slate-400 hover:shadow-md"
           >
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
@@ -382,77 +418,14 @@ function StudentEnrollment() {
 
           {/* Enrollment Report Cards */}
           {enrollments.map((enrollment, index) => (
-            <motion.div
+            <EnrollmentReportCard
               key={enrollment.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
-              className="relative flex w-full flex-col items-center rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-6 text-center shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
-            >
-              {/* Campus Location Badge (Only in Global View) */}
-              {!campusId && enrollment.campuses && enrollment.campuses.name && (
-                <div className="absolute left-3 top-3 z-10 flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
-                  <MapPin className="h-3 w-3 shrink-0 text-slate-500" />
-                  <span>{enrollment.campuses.name}</span>
-                </div>
-              )}
-
-              {/* Delete Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDelete(enrollment.id)
-                }}
-                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                title="Delete report"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-
-              {/* Program Icon */}
-              <div className="mb-5 mt-6">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
-                  <UsersRound className="h-7 w-7 text-blue-600" />
-                </div>
-              </div>
-
-              {/* Enrollment Info */}
-              <div className="text-center w-full">
-                <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">
-                  {enrollment.programs?.name || 'Unknown Program'}
-                </h3>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                    {enrollment.semester} {enrollment.academic_year}
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900 mb-2">
-                  {enrollment.total_enrolled || (enrollment.male_students + enrollment.female_students) || 0}
-                </p>
-                <p className="text-xs text-slate-500 mb-2">
-                  Total Enrolled
-                </p>
-                {enrollment.new_admissions > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-600">
-                      +{enrollment.new_admissions} New Admissions
-                    </span>
-                  </div>
-                )}
-                <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-slate-500 mb-1">Male</p>
-                    <p className="font-semibold text-slate-700">{enrollment.male_students || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">Female</p>
-                    <p className="font-semibold text-slate-700">{enrollment.female_students || 0}</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+              enrollment={enrollment}
+              showCampusBadge={!campusId}
+              index={index}
+              onDelete={handleDelete}
+              onOpenDetail={setDetailEnrollment}
+            />
           ))}
         </div>
       )}
@@ -526,12 +499,23 @@ function StudentEnrollment() {
                       </label>
                       <select
                         value={programId}
-                        onChange={(e) => programIdParam ? undefined : setProgramId(e.target.value)}
+                        onChange={(e) => {
+                          if (!programIdParam) setProgramId(e.target.value)
+                        }}
                         disabled={!selectedCampusId || !!programIdParam}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
                         required
                       >
-                        <option value="">{selectedCampusId ? (programIdParam ? 'Program pre-selected' : 'Select Program') : 'Select Campus first'}</option>
+                        {!programIdParam && (
+                          <option value="">
+                            {selectedCampusId ? 'Select Program' : 'Select Campus first'}
+                          </option>
+                        )}
+                        {programIdParam &&
+                          programId &&
+                          !programs.some((p) => p.id === programId) && (
+                            <option value={programId}>Loading program…</option>
+                          )}
                         {programs.map((program) => (
                           <option key={program.id} value={program.id}>
                             {program.name}
@@ -551,7 +535,10 @@ function StudentEnrollment() {
                         </label>
                         <select
                           value={academicYear}
-                          onChange={(e) => setAcademicYear(e.target.value)}
+                          onChange={(e) => {
+                            setAcademicYear(e.target.value)
+                            setSemester('')
+                          }}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         >
@@ -570,16 +557,37 @@ function StudentEnrollment() {
                         <select
                           value={semester}
                           onChange={(e) => setSemester(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                          disabled={!academicYear || !selectedCampusId || !programId}
+                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
                           required
                         >
-                          <option value="">Select Semester</option>
-                          {SEMESTERS.map((sem) => (
-                            <option key={sem} value={sem}>
-                              {sem}
-                            </option>
-                          ))}
+                          <option value="">
+                            {!selectedCampusId || !programId
+                              ? 'Select campus & program first'
+                              : !academicYear
+                                ? 'Select academic year first'
+                                : 'Select Semester'}
+                          </option>
+                          {SEMESTERS.map((sem) => {
+                            const taken = takenSemestersForForm.has(sem)
+                            return (
+                              <option key={sem} value={sem} disabled={taken}>
+                                {sem}
+                                {taken ? ' (already added)' : ''}
+                              </option>
+                            )
+                          })}
                         </select>
+                        {academicYear && selectedCampusId && programId && takenSemestersForForm.size >= SEMESTERS.length && (
+                          <p className="mt-2 text-xs text-amber-700">
+                            All semesters for this academic year already have reports. Delete one to add again, or pick another year.
+                          </p>
+                        )}
+                        {academicYear && selectedCampusId && programId && takenSemestersForForm.size > 0 && takenSemestersForForm.size < SEMESTERS.length && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            Terms that already have a report for this year are disabled.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -659,6 +667,12 @@ function StudentEnrollment() {
           </>
         )}
       </AnimatePresence>
+
+      <EnrollmentReportDetailModal
+        enrollment={detailEnrollment}
+        onClose={() => setDetailEnrollment(null)}
+        campusContextName={campusId ? campusName : null}
+      />
 
       {/* Toast Notification */}
       {toast && (

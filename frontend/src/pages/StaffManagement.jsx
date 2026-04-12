@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -39,16 +39,20 @@ const ADMINISTRATIVE_ROLES = [
   'Program Coordinator'
 ]
 
-// Categories for Non-Teaching Staff
+// Categories for Non-Teaching Staff (dropdown presets; "Other" uses separate text field)
 const NON_TEACHING_CATEGORIES = [
   'Administrative',
   'Technical',
   'Library',
   'Finance & Accounts',
-  'Support Staff'
+  'Support Staff',
+  'Department support',
+  'Academic support'
 ]
 
-// Designations/Offices for Non-Teaching Staff
+const OTHER_OPTION_VALUE = '__OTHER__'
+
+// Central / campus-wide non-teaching roles (shown after department-specific list when a department is selected)
 const NON_TEACHING_DESIGNATIONS = [
   'Registrar Office',
   'Finance Dept',
@@ -61,6 +65,17 @@ const NON_TEACHING_DESIGNATIONS = [
   'Transport',
   'Maintenance',
   'Procurement'
+]
+
+// When a department is selected, show these first (department-relevant non-teaching)
+const DEPARTMENT_NON_TEACHING_ROLES = [
+  'Program Coordinator',
+  'Department Secretary',
+  'Lab Supervisor',
+  'Academic Coordinator',
+  'Department IT Support',
+  'Exam / Academics Support',
+  'Placement / Industry Liaison'
 ]
 
 // Employment Types
@@ -87,7 +102,8 @@ function StaffManagement() {
   const returnFacultyId = searchParams.get('returnFacultyId') || searchParams.get('facultyId')
   const administrativeRoleParam = searchParams.get('administrativeRole')
   const academicDesignationParam = searchParams.get('academicDesignation')
-  
+  const openFormParam = searchParams.get('openForm')
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
@@ -122,9 +138,11 @@ function StaffManagement() {
   const [qualification, setQualification] = useState('')
   const [specialization, setSpecialization] = useState('')
   
-  // Non-Teaching Staff Fields
+  // Non-Teaching Staff Fields (category/designation select may be OTHER_OPTION_VALUE + custom text)
   const [category, setCategory] = useState('')
+  const [categoryCustom, setCategoryCustom] = useState('')
   const [designation, setDesignation] = useState('')
+  const [designationCustom, setDesignationCustom] = useState('')
 
   useEffect(() => {
     loadUserData()
@@ -142,26 +160,37 @@ function StaffManagement() {
       }
       fetchStaff()
       
-      // Auto-open form if fullName is provided (coming from Faculty Management)
-      if (fullNameParam) {
+      // Auto-open form if fullName is provided (coming from Faculty Management) or openForm=1 (e.g. Department Detail)
+      if (fullNameParam || openFormParam === '1') {
         setShowForm(true)
       }
     }
-  }, [user, campusId, staffType, fullNameParam, departmentIdParam])
+  }, [user, campusId, staffType, fullNameParam, departmentIdParam, openFormParam])
 
   useEffect(() => {
-    if (selectedCampusId && staffType === 'Teaching') {
+    if (!selectedCampusId) {
+      setFaculties([])
+      setDepartments([])
+      return
+    }
+    if (staffType === 'Teaching') {
       fetchFaculties()
       if (!departmentIdParam) {
         setFacultyId('')
         setDepartmentId('')
         setDepartments([])
       }
+    } else if (staffType === 'Non-Teaching') {
+      fetchFaculties()
+      if (!facultyId) {
+        setDepartments([])
+        setDepartmentId('')
+      }
     } else {
       setFaculties([])
       setDepartments([])
     }
-  }, [selectedCampusId, staffType])
+  }, [selectedCampusId, staffType, departmentIdParam, facultyId])
 
   // When opened from Department Detail with departmentId, fetch department and lock Faculty/Department
   useEffect(() => {
@@ -182,14 +211,42 @@ function StaffManagement() {
     fetchDepartmentForLock()
   }, [user?.university_id, departmentIdParam, campusId])
 
+  const prevNonTeachingFacultyIdRef = useRef(null)
   useEffect(() => {
-    if (facultyId && selectedCampusId && staffType === 'Teaching') {
-      fetchDepartments()
-    } else {
+    if (staffType !== 'Non-Teaching' || departmentIdParam) {
+      prevNonTeachingFacultyIdRef.current = facultyId
+      return
+    }
+    const prev = prevNonTeachingFacultyIdRef.current
+    prevNonTeachingFacultyIdRef.current = facultyId
+    if (prev && facultyId && prev !== facultyId) {
       setDepartmentId('')
-      setDepartments([])
+    }
+  }, [facultyId, staffType, departmentIdParam])
+
+  useEffect(() => {
+    if (!selectedCampusId) return
+    if (staffType === 'Teaching') {
+      if (facultyId) fetchDepartments()
+      else {
+        setDepartmentId('')
+        setDepartments([])
+      }
+    } else if (staffType === 'Non-Teaching') {
+      if (facultyId) fetchDepartments()
+      else {
+        setDepartmentId('')
+        setDepartments([])
+      }
     }
   }, [facultyId, selectedCampusId, staffType])
+
+  useEffect(() => {
+    if (staffType !== 'Non-Teaching') return
+    if (!departmentId && designation && DEPARTMENT_NON_TEACHING_ROLES.includes(designation)) {
+      setDesignation('')
+    }
+  }, [departmentId, staffType, designation])
 
   const loadUserData = async () => {
     try {
@@ -327,7 +384,7 @@ function StaffManagement() {
     }
   }
 
-  // Staff photos: staff_profiles bucket only (never avatars)
+  // Staff photos: staff-profiles bucket only (never avatars)
   const uploadStaffPhoto = async (file) => {
     if (!file || !user?.university_id) return null
 
@@ -335,7 +392,7 @@ function StaffManagement() {
       const fileName = `staff-photo-${user.university_id}-${Date.now()}-${file.name}`
       
       const { error: uploadError } = await supabase.storage
-        .from('staff_profiles')
+        .from('staff-profiles')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: false
@@ -344,7 +401,7 @@ function StaffManagement() {
       if (uploadError) throw uploadError
 
       const { data: publicUrlData } = supabase.storage
-        .from('staff_profiles')
+        .from('staff-profiles')
         .getPublicUrl(fileName)
       
       return publicUrlData.publicUrl
@@ -432,9 +489,21 @@ function StaffManagement() {
       return
     }
 
-    if (staffType === 'Non-Teaching' && (!category || !designation)) {
-      showToast('Please fill in all non-teaching staff fields', 'error')
-      return
+    if (staffType === 'Non-Teaching') {
+      const categoryFinal = category === OTHER_OPTION_VALUE ? categoryCustom.trim() : category
+      const designationFinal = designation === OTHER_OPTION_VALUE ? designationCustom.trim() : designation
+      if (!categoryFinal || !designationFinal) {
+        showToast('Please fill in category and designation (including custom text if you chose Other).', 'error')
+        return
+      }
+      if (category === OTHER_OPTION_VALUE && !categoryCustom.trim()) {
+        showToast('Please enter a custom category.', 'error')
+        return
+      }
+      if (designation === OTHER_OPTION_VALUE && !designationCustom.trim()) {
+        showToast('Please enter a custom designation.', 'error')
+        return
+      }
     }
 
     setSaving(true)
@@ -466,8 +535,20 @@ function StaffManagement() {
         staffData.qualification = qualification || null
         staffData.specialization = specialization || null
       } else {
-        staffData.category = category
-        staffData.designation = designation
+        const categoryFinal = category === OTHER_OPTION_VALUE ? categoryCustom.trim() : category
+        const designationFinal = designation === OTHER_OPTION_VALUE ? designationCustom.trim() : designation
+        staffData.category = categoryFinal
+        staffData.designation = designationFinal
+        if (facultyId) {
+          staffData.faculty_id = facultyId
+        } else {
+          staffData.faculty_id = null
+        }
+        if (departmentId && facultyId) {
+          staffData.department_id = departmentId
+        } else {
+          staffData.department_id = null
+        }
       }
 
       const { data, error } = await supabase
@@ -502,7 +583,9 @@ function StaffManagement() {
       setQualification('')
       setSpecialization('')
       setCategory('')
+      setCategoryCustom('')
       setDesignation('')
+      setDesignationCustom('')
       
       const fileInput = document.getElementById('staff-photo-upload')
       if (fileInput) fileInput.value = ''
@@ -510,9 +593,7 @@ function StaffManagement() {
       await fetchStaff()
       setShowForm(false)
 
-      if (returnTo === 'department' && selectedCampusId && facultyId && departmentId) {
-        navigate(`/ufp/campus/${selectedCampusId}/faculty/${facultyId}/department/${departmentId}`)
-      } else if (returnPath) {
+      if (returnPath) {
         setTimeout(() => {
           navigate(returnPath)
         }, 1000)
@@ -567,7 +648,7 @@ function StaffManagement() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
+        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -589,15 +670,23 @@ function StaffManagement() {
           className="mb-2 text-sm text-slate-500"
         />
 
-        <div>
-          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            {staffTypeParam ? `${staffType} Staff Management` : 'Staff Management'}
-          </h2>
-          <p className="text-sm text-slate-600 sm:text-base">
-            {staffTypeParam
-              ? (campusId ? `Manage ${staffType.toLowerCase()} staff for ${campusName || 'this campus'}` : `Manage your university's ${staffType.toLowerCase()} staff`)
-              : 'Manage your university staff'}
-          </p>
+        <div className="flex items-start gap-4">
+          <div
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
+            aria-hidden
+          >
+            <Users className="h-5 w-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              {staffTypeParam ? `${staffType} Staff Management` : 'Staff Management'}
+            </h2>
+            <p className="text-sm text-slate-600 sm:text-base">
+              {staffTypeParam
+                ? (campusId ? `Manage ${staffType.toLowerCase()} staff for ${campusName || 'this campus'}` : `Manage your university's ${staffType.toLowerCase()} staff`)
+                : 'Manage your university staff'}
+            </p>
+          </div>
         </div>
       </motion.div>
 
@@ -1108,6 +1197,52 @@ function StaffManagement() {
                       <>
                         <div>
                           <label className="block text-sm font-medium text-slate-900 mb-2">
+                            Faculty <span className="text-slate-500 text-xs">(Optional)</span>
+                          </label>
+                          <select
+                            value={facultyId}
+                            onChange={(e) => {
+                              if (departmentIdParam) return
+                              setFacultyId(e.target.value)
+                              setDepartmentId('')
+                            }}
+                            disabled={!selectedCampusId || !!departmentIdParam}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          >
+                            <option value="">
+                              {departmentIdParam ? 'Faculty pre-selected' : selectedCampusId ? 'No faculty (campus-wide)' : 'Select campus first'}
+                            </option>
+                            {faculties.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-2">
+                            Department <span className="text-slate-500 text-xs">(Optional)</span>
+                          </label>
+                          <select
+                            value={departmentId}
+                            onChange={(e) => (departmentIdParam ? undefined : setDepartmentId(e.target.value))}
+                            disabled={!facultyId || !!departmentIdParam}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          >
+                            <option value="">
+                              {facultyId ? (departmentIdParam ? 'Department pre-selected' : 'No department') : 'Select faculty first to list departments'}
+                            </option>
+                            {departments.map((dept) => (
+                              <option key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-2">
                             Category <span className="text-red-500">*</span>
                           </label>
                           <select
@@ -1122,12 +1257,22 @@ function StaffManagement() {
                                 {cat}
                               </option>
                             ))}
+                            <option value={OTHER_OPTION_VALUE}>Other (specify)</option>
                           </select>
+                          {category === OTHER_OPTION_VALUE && (
+                            <input
+                              type="text"
+                              value={categoryCustom}
+                              onChange={(e) => setCategoryCustom(e.target.value)}
+                              placeholder="Enter custom category"
+                              className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 text-sm"
+                            />
+                          )}
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-slate-900 mb-2">
-                            Designation/Office <span className="text-red-500">*</span>
+                            Designation / role <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={designation}
@@ -1136,12 +1281,33 @@ function StaffManagement() {
                             required
                           >
                             <option value="">Select Designation</option>
-                            {NON_TEACHING_DESIGNATIONS.map((des) => (
-                              <option key={des} value={des}>
-                                {des}
-                              </option>
-                            ))}
+                            {departmentId ? (
+                              <optgroup label="Department roles">
+                                {DEPARTMENT_NON_TEACHING_ROLES.map((des) => (
+                                  <option key={`dept-${des}`} value={des}>
+                                    {des}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                            <optgroup label={departmentId ? 'University / central' : 'Roles'}>
+                              {NON_TEACHING_DESIGNATIONS.map((des) => (
+                                <option key={des} value={des}>
+                                  {des}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <option value={OTHER_OPTION_VALUE}>Other (specify)</option>
                           </select>
+                          {designation === OTHER_OPTION_VALUE && (
+                            <input
+                              type="text"
+                              value={designationCustom}
+                              onChange={(e) => setDesignationCustom(e.target.value)}
+                              placeholder="Enter custom designation"
+                              className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 text-sm"
+                            />
+                          )}
                         </div>
                       </>
                     )}

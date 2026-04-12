@@ -201,7 +201,7 @@ function CommitteeManagement() {
       const fileName = `committee-photo-${user.university_id}-${Date.now()}-${file.name}`
       
       const { error: uploadError } = await supabase.storage
-        .from('staff_profiles')
+        .from('staff-profiles')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: false
@@ -210,7 +210,7 @@ function CommitteeManagement() {
       if (uploadError) throw uploadError
 
       const { data: publicUrlData } = supabase.storage
-        .from('staff_profiles')
+        .from('staff-profiles')
         .getPublicUrl(fileName)
       
       return publicUrlData.publicUrl

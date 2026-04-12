@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -16,6 +16,7 @@ import {
 import Breadcrumbs from '../components/Breadcrumbs'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
+import AddDepartmentInlineModal from '../components/AddDepartmentInlineModal'
 
 function FacultyDetailView() {
   const navigate = useNavigate()
@@ -35,6 +36,11 @@ function FacultyDetailView() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingLetter, setUploadingLetter] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false)
+  const [toast, setToast] = useState(null)
+  const hodPhotoInputRef = useRef(null)
+  const pendingHodDeptIdRef = useRef(null)
+  const [hodPhotoUploadingDeptId, setHodPhotoUploadingDeptId] = useState(null)
 
   useEffect(() => {
     loadUserData()
@@ -137,6 +143,55 @@ function FacultyDetailView() {
     }
   }
 
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 5000)
+  }
+
+  const openDepartmentHodPhotoPicker = (deptId, e) => {
+    e.stopPropagation()
+    if (hodPhotoUploadingDeptId) return
+    pendingHodDeptIdRef.current = deptId
+    hodPhotoInputRef.current?.click()
+  }
+
+  const handleDepartmentHodPhotoChange = async (e) => {
+    const file = e.target.files?.[0]
+    const deptId = pendingHodDeptIdRef.current
+    e.target.value = ''
+    pendingHodDeptIdRef.current = null
+    if (!file || !deptId || !user?.university_id || !facultyId) return
+    if (!file.type.startsWith('image/')) {
+      showToast('Please choose an image file', 'error')
+      return
+    }
+    setHodPhotoUploadingDeptId(deptId)
+    try {
+      const fileName = `hod-photo-${user.university_id}-${Date.now()}-${file.name.replace(/\s/g, '-')}`
+      const { error: upErr } = await supabase.storage
+        .from('official_photos')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true })
+      if (upErr) throw new Error(upErr.message || 'Upload failed')
+      const { data: urlData } = supabase.storage.from('official_photos').getPublicUrl(fileName)
+      const url = urlData?.publicUrl
+      if (!url) throw new Error('Failed to get URL')
+      const { error: dbErr } = await supabase
+        .from('departments')
+        .update({ hod_photo_url: url })
+        .eq('id', deptId)
+        .eq('university_id', user.university_id)
+        .eq('faculty_id', facultyId)
+      if (dbErr) throw new Error(dbErr.message || 'Database update failed')
+      setDepartments((prev) => prev.map((d) => (d.id === deptId ? { ...d, hod_photo_url: url } : d)))
+      showToast('HOD photo updated')
+    } catch (err) {
+      console.error(err)
+      showToast(err.message || 'Failed to upload photo', 'error')
+    } finally {
+      setHodPhotoUploadingDeptId(null)
+    }
+  }
+
   const fetchDepartments = async () => {
     if (!facultyId || !user?.university_id) return
     const { data, error } = await supabase
@@ -226,19 +281,21 @@ function FacultyDetailView() {
 
   if (!campus || !faculty) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <div className="text-center">
-          <Building2 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
-          <h2 className="mb-3 text-xl font-semibold text-slate-900">Not Found</h2>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            Back
-          </button>
+      <UfpAdminShell>
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="text-center">
+            <Building2 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+            <h2 className="mb-3 text-xl font-semibold text-slate-900">Not Found</h2>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Back
+            </button>
+          </div>
         </div>
-      </div>
+      </UfpAdminShell>
     )
   }
 
@@ -249,7 +306,7 @@ function FacultyDetailView() {
           <motion.div
             initial={{ y: -12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="mb-10 rounded-xl border border-slate-200/90 border-t-2 border-t-blue-600 bg-gradient-to-br from-white via-blue-50/[0.07] to-slate-50 p-5 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/50 sm:mb-12 sm:p-6"
+            className="mb-10 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:mb-12 sm:p-6"
           >
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
@@ -272,7 +329,7 @@ function FacultyDetailView() {
                 />
                 <div className="flex items-start gap-3">
                   <div
-                    className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/12 to-indigo-600/10 text-blue-700 shadow-sm ring-1 ring-blue-200/55"
+                    className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
                     aria-hidden
                   >
                     <Building2 className="h-5 w-5" strokeWidth={2} />
@@ -319,13 +376,13 @@ function FacultyDetailView() {
             </div>
           </motion.div>
 
-          <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/25 shadow-sm ring-1 ring-slate-200/40">
-            <div className="border-b border-blue-200/60 bg-gradient-to-r from-blue-50/90 via-blue-50/50 to-indigo-50/25 px-4 py-3.5 sm:px-6 sm:py-4">
+          <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/95 via-white to-blue-50/40 shadow-sm shadow-blue-900/[0.04] ring-1 ring-blue-950/[0.04] ring-slate-200/45">
+            <div className="border-b border-blue-300/70 bg-gradient-to-r from-blue-100/85 via-blue-50/70 to-indigo-100/35 px-4 py-3.5 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="border-l-4 border-l-blue-600 pl-3 text-2xl font-bold tracking-tight text-slate-900">Departments</h3>
                 <button
                   type="button"
-                  onClick={() => navigate(`/ufp/departments?campusId=${campusId}&facultyId=${facultyId}&returnTo=faculty`)}
+                  onClick={() => setShowAddDepartmentModal(true)}
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4" />
@@ -344,14 +401,23 @@ function FacultyDetailView() {
                 <p className="mb-4 text-sm text-slate-600">No departments yet. Add the first one to get started.</p>
                 <button
                   type="button"
-                  onClick={() => navigate(`/ufp/departments?campusId=${campusId}&facultyId=${facultyId}&returnTo=faculty`)}
+                  onClick={() => setShowAddDepartmentModal(true)}
                   className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                 >
                   Add Department
                 </button>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 justify-items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              <>
+                <input
+                  ref={hodPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleDepartmentHodPhotoChange}
+                  aria-hidden
+                />
+                <div className="grid grid-cols-1 justify-items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-3">
                 {departments.map((dept, i) => {
                   const summ = departmentSummaries[dept.id] || { programs_count: 0, teaching_staff_count: 0, students_count: 0 }
                   const isActive = (dept.status || '').toLowerCase() === 'active'
@@ -366,20 +432,29 @@ function FacultyDetailView() {
                     >
                       <div className="flex min-w-0 items-start gap-3 pb-3">
                         <div className="shrink-0">
-                          {dept.hod_photo_url ? (
-                            <img
-                              src={dept.hod_photo_url}
-                              alt={dept.head_of_department || 'HOD'}
-                              className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                            />
-                          ) : (
-                            <div
-                              className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-200 bg-slate-50"
-                              title="No HOD photo"
-                            >
-                              <User className="h-8 w-8 text-slate-400" />
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            title="Change HOD photo"
+                            aria-label={`Upload HOD photo for ${dept.name}`}
+                            disabled={!!hodPhotoUploadingDeptId}
+                            onClick={(e) => openDepartmentHodPhotoPicker(dept.id, e)}
+                            className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left ring-offset-2 transition hover:ring-2 hover:ring-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                          >
+                            {dept.hod_photo_url ? (
+                              <img
+                                src={dept.hod_photo_url}
+                                alt={dept.head_of_department || 'HOD'}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <User className="h-8 w-8 text-slate-400" aria-hidden />
+                            )}
+                            {hodPhotoUploadingDeptId === dept.id && (
+                              <span className="absolute inset-0 flex items-center justify-center bg-white/80">
+                                <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
+                              </span>
+                            )}
+                          </button>
                         </div>
                         <div className="min-w-0 flex-1 space-y-1 pt-0.5">
                           <h4 className="break-words text-base font-semibold leading-snug text-slate-900">
@@ -439,12 +514,40 @@ function FacultyDetailView() {
                     </motion.div>
                   )
                 })}
-              </div>
+                </div>
+              </>
             )}
             </div>
           </section>
         </div>
       </UfpAdminContainer>
+
+      <AddDepartmentInlineModal
+        open={showAddDepartmentModal}
+        onClose={() => setShowAddDepartmentModal(false)}
+        universityId={user?.university_id}
+        campusId={campusId}
+        facultyId={facultyId}
+        facultyName={faculty?.name}
+        onSaved={async () => {
+          await fetchDepartments()
+          await fetchSummary()
+          showToast('Department added successfully.')
+        }}
+        onError={(m) => showToast(m, 'error')}
+      />
+
+      {toast && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`fixed bottom-4 right-4 z-[80] max-w-sm rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg ${
+            toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'
+          }`}
+        >
+          {toast.message}
+        </motion.div>
+      )}
     </UfpAdminShell>
   )
 }

@@ -36,8 +36,8 @@ export default function UfpLeadershipPanel({
           {uploadError}
         </p>
       )}
-      <div className="rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 shadow-md shadow-slate-300/15 ring-1 ring-slate-200/45">
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-slate-200/90 bg-gradient-to-r from-white to-slate-50/90 p-3 shadow-sm">
+      <div className="rounded-xl border border-slate-200/95 border-l-4 border-l-blue-600 bg-gradient-to-br from-slate-50 via-white to-blue-50/50 p-4 shadow-md shadow-blue-900/10 shadow-slate-300/12 ring-1 ring-blue-200/30 ring-slate-200/40">
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-slate-200/90 bg-gradient-to-r from-white to-blue-50/35 p-3 shadow-sm">
           <input
             type="file"
             accept="image/*"
@@ -79,7 +79,10 @@ export default function UfpLeadershipPanel({
             </label>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{roleLabel}</p>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500/75" aria-hidden />
+              {roleLabel}
+            </p>
             <p
               className="mt-0.5 line-clamp-4 break-words text-base font-semibold leading-snug text-slate-900"
               title={displayName || undefined}

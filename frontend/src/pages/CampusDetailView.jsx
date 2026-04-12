@@ -6,7 +6,8 @@ import {
   ArrowLeft,
   Building2,
   Plus,
-  Briefcase
+  Briefcase,
+  MapPin
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
 import DirectoryRow from '../components/DirectoryRow'
@@ -459,7 +460,7 @@ function CampusDetailView() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-md sm:p-6"
+        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -482,26 +483,34 @@ function CampusDetailView() {
           className="mb-2 text-sm text-slate-500"
         />
 
-        <div>
-          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{campus.name}</h2>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 sm:gap-3">
-            <span>{campus.city}</span>
-            {campus.is_main_campus && (
-              <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
-                Main Campus
-              </span>
-            )}
-            {campus.code && (
-              <span className="rounded-full bg-slate-100 px-3 py-0.5 font-mono text-xs font-medium text-slate-700">
-                {campus.code}
-              </span>
-            )}
+        <div className="flex items-start gap-4">
+          <div
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
+            aria-hidden
+          >
+            <MapPin className="h-5 w-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{campus.name}</h2>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 sm:gap-3">
+              <span>{campus.city}</span>
+              {campus.is_main_campus && (
+                <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
+                  Main Campus
+                </span>
+              )}
+              {campus.code && (
+                <span className="rounded-full bg-slate-100 px-3 py-0.5 font-mono text-xs font-medium text-slate-700">
+                  {campus.code}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
 
       {/* Faculty Directory ladder view */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-md sm:p-6">
+      <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/40 to-blue-50/35 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/18 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 border-l-4 border-l-blue-600 pl-3">
             <h3 className="text-xl font-semibold tracking-tight text-slate-900">All Faculties</h3>
@@ -521,7 +530,7 @@ function CampusDetailView() {
 
         <div className="overflow-hidden rounded-xl border border-slate-200">
           {/* Header row */}
-          <div className="flex items-center border-b-2 border-slate-200 bg-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+          <div className="flex items-center border-b-2 border-blue-200/70 bg-gradient-to-r from-blue-50/95 via-sky-50/90 to-blue-50/95 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
             <div className="flex-1 px-3 py-2">Name / Hierarchy</div>
             <div className="w-52 px-3 py-2">Code / Type</div>
             <div className="w-64 px-3 py-2">Focal / Status</div>

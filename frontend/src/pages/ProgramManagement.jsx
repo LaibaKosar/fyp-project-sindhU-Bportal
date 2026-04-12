@@ -14,119 +14,19 @@ import {
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
-
-// Map Degree Level (UI label) to PROGRAM_CATEGORIES key
-const DEGREE_LEVEL_TO_KEY = {
-  'Undergraduate': 'undergraduate',
-  'Graduate (MS/M.Phil)': 'graduate',
-  'Postgraduate (PhD)': 'postgraduate'
-}
-
-// Program Categories and Programs by degree level
-const PROGRAM_CATEGORIES = {
-  'Engineering': {
-    undergraduate: [
-      'BE Electrical',
-      'BE Mechanical',
-      'BE Civil',
-      'BE Software',
-      'BE Mechatronics',
-      'BE Chemical',
-      'BE Petroleum'
-    ],
-    graduate: [
-      'ME Renewable Energy',
-      'ME Electrical Engineering'
-    ],
-    postgraduate: []
-  },
-  'Medicine & Health': {
-    undergraduate: [
-      'MBBS',
-      'BDS',
-      'Pharm-D',
-      'DPT',
-      'BS Nursing',
-      'BS Medical Technology',
-      'BS Radiography'
-    ],
-    graduate: [],
-    postgraduate: []
-  },
-  'Computer Science': {
-    undergraduate: [
-      'BS Computer Science',
-      'BS Software Engineering',
-      'BS AI',
-      'BS Data Science',
-      'BS Cyber Security'
-    ],
-    graduate: ['MS Computer Science'],
-    postgraduate: ['PhD Computer Science']
-  },
-  'Business / Management': {
-    undergraduate: [
-      'BBA',
-      'BS Accounting & Finance',
-      'BS Supply Chain'
-    ],
-    graduate: [
-      'MBA (2 Years)',
-      'MS Management Sciences'
-    ],
-    postgraduate: ['PhD Management Sciences']
-  },
-  'Education': {
-    undergraduate: [
-      'B.Ed (Hons) 4-Year',
-      'B.Ed 1.5-Year',
-      'B.Ed 2.5-Year',
-      'ADE (Associate Degree in Education)'
-    ],
-    graduate: ['MS Education'],
-    postgraduate: ['PhD Education']
-  },
-  'Social Sciences': {
-    undergraduate: [
-      'BS Psychology',
-      'BS International Relations',
-      'BS Sociology',
-      'BS English',
-      'LLB (5-Year)'
-    ],
-    graduate: [],
-    postgraduate: []
-  },
-  'Basic Sciences': {
-    undergraduate: [
-      'BS Mathematics',
-      'BS Physics',
-      'BS Chemistry',
-      'BS Microbiology',
-      'BS Biotechnology'
-    ],
-    graduate: [],
-    postgraduate: []
-  }
-}
-
-// Degree Levels
-const DEGREE_LEVELS = [
-  'Undergraduate',
-  'Graduate (MS/M.Phil)',
-  'Postgraduate (PhD)'
-]
-
-// Duration Options (Years)
-const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 5]
+import {
+  DEGREE_LEVEL_TO_KEY,
+  PROGRAM_CATEGORIES,
+  DEGREE_LEVELS,
+  DURATION_OPTIONS
+} from '../data/programFormCatalog'
 
 function ProgramManagement() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const campusId = searchParams.get('campusId')
   const departmentIdParam = searchParams.get('departmentId')
-  const returnTo = searchParams.get('returnTo')
-  
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
@@ -417,10 +317,6 @@ function ProgramManagement() {
       
       await fetchPrograms()
       setShowForm(false)
-
-      if (returnTo === 'department' && selectedCampusId && facultyId && departmentId) {
-        navigate(`/ufp/campus/${selectedCampusId}/faculty/${facultyId}/department/${departmentId}`)
-      }
     } catch (error) {
       console.error('Error saving program:', error)
       showToast(error.message || 'Error saving program', 'error')
@@ -466,7 +362,7 @@ function ProgramManagement() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200 border-t-2 border-t-blue-600 bg-white p-5 shadow-sm sm:p-6"
+        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -488,11 +384,19 @@ function ProgramManagement() {
           className="mb-2 text-sm text-slate-500"
         />
 
-        <div>
-          <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Program Management</h2>
-          <p className="text-sm text-slate-600 sm:text-base">
-            {campusId ? `Manage programs for ${campusName || 'this campus'}` : 'Manage your university programs'}
-          </p>
+        <div className="flex items-start gap-4">
+          <div
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
+            aria-hidden
+          >
+            <BookOpen className="h-5 w-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Program Management</h2>
+            <p className="text-sm text-slate-600 sm:text-base">
+              {campusId ? `Manage programs for ${campusName || 'this campus'}` : 'Manage your university programs'}
+            </p>
+          </div>
         </div>
       </motion.div>
 

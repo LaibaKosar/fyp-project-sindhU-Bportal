@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -77,6 +77,9 @@ function FacultyManagement() {
   const [toast, setToast] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [campusName, setCampusName] = useState(null)
+  const facultyTableEmblemInputRef = useRef(null)
+  const pendingEmblemFacultyIdRef = useRef(null)
+  const [emblemUploadingFacultyId, setEmblemUploadingFacultyId] = useState(null)
 
   // Form state
   const [emblemFile, setEmblemFile] = useState(null)
@@ -490,6 +493,54 @@ function FacultyManagement() {
     setTimeout(() => setToast(null), 5000)
   }
 
+  const openFacultyEmblemPicker = (facultyId, e) => {
+    e?.stopPropagation()
+    if (emblemUploadingFacultyId) return
+    pendingEmblemFacultyIdRef.current = facultyId
+    facultyTableEmblemInputRef.current?.click()
+  }
+
+  const handleFacultyTableEmblemChange = async (e) => {
+    const file = e.target.files?.[0]
+    const facultyId = pendingEmblemFacultyIdRef.current
+    e.target.value = ''
+    pendingEmblemFacultyIdRef.current = null
+    if (!file || !facultyId || !user?.university_id) return
+    if (!file.type.startsWith('image/')) {
+      showToast('Please choose an image file', 'error')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be 5MB or smaller', 'error')
+      return
+    }
+    setEmblemUploadingFacultyId(facultyId)
+    try {
+      const fileName = `faculty-emblem-${user.university_id}-${Date.now()}-${file.name.replace(/\s/g, '-')}`
+      const { error: uploadError } = await supabase.storage
+        .from('university-logos')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false })
+      if (uploadError) throw new Error(uploadError.message)
+      const { data: urlData } = supabase.storage.from('university-logos').getPublicUrl(fileName)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) throw new Error('Could not get file URL')
+      const urlWithCache = `${publicUrl}?t=${Date.now()}`
+      const { error: dbErr } = await supabase
+        .from('faculties')
+        .update({ emblem_url: urlWithCache })
+        .eq('id', facultyId)
+        .eq('university_id', user.university_id)
+      if (dbErr) throw new Error(dbErr.message)
+      await fetchFaculties()
+      showToast('Faculty emblem updated')
+    } catch (err) {
+      console.error(err)
+      showToast(err.message || 'Failed to upload emblem', 'error')
+    } finally {
+      setEmblemUploadingFacultyId(null)
+    }
+  }
+
   if (loading) {
     return <UfpAdminLoadingCenter />
   }
@@ -501,7 +552,7 @@ function FacultyManagement() {
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-10 rounded-xl border border-slate-200/90 border-t-2 border-t-blue-600 bg-gradient-to-br from-white via-blue-50/[0.07] to-slate-50 p-5 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/50 sm:mb-12 sm:p-6"
+        className="mb-10 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:mb-12 sm:p-6"
       >
         <motion.button
           initial={{ opacity: 0, x: -12 }}
@@ -525,7 +576,7 @@ function FacultyManagement() {
 
         <div className="flex items-start gap-4">
           <div
-            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/12 to-indigo-600/10 text-blue-700 shadow-sm ring-1 ring-blue-200/55"
+            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
             aria-hidden
           >
             <Building2 className="h-5 w-5" strokeWidth={2} />
@@ -564,7 +615,15 @@ function FacultyManagement() {
           </button>
         </motion.div>
       ) : (
-        <section className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/25 p-3 shadow-sm ring-1 ring-slate-200/40 sm:p-4">
+        <section className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/95 via-white to-blue-50/40 p-3 shadow-sm shadow-blue-900/[0.04] ring-1 ring-blue-950/[0.04] ring-slate-200/45 sm:p-4">
+          <input
+            ref={facultyTableEmblemInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFacultyTableEmblemChange}
+            aria-hidden
+          />
           {/* Desktop: data table */}
           <div className="mb-4 hidden items-center justify-end lg:flex">
             <button
@@ -579,7 +638,7 @@ function FacultyManagement() {
           <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
             <table className="w-full min-w-[1024px] border-collapse text-left text-sm text-slate-700">
               <thead>
-                <tr className="border-b-2 border-slate-300 bg-gradient-to-r from-slate-100 via-blue-50/30 to-slate-100">
+                <tr className="border-b-2 border-blue-200/80 bg-gradient-to-r from-blue-100/90 via-sky-50 to-blue-100/85">
                   <th
                     scope="col"
                     className="px-4 py-3.5 text-left text-sm font-bold leading-snug tracking-tight text-slate-900"
@@ -659,7 +718,14 @@ function FacultyManagement() {
                     >
                       <td className="max-w-md px-4 py-3.5 align-top">
                         <div className="flex gap-3">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <button
+                            type="button"
+                            title="Change faculty emblem"
+                            aria-label={`Upload emblem for ${faculty.name}`}
+                            disabled={!!emblemUploadingFacultyId}
+                            onClick={(e) => openFacultyEmblemPicker(faculty.id, e)}
+                            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white text-left ring-offset-2 transition hover:ring-2 hover:ring-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                          >
                             {faculty.emblem_url ? (
                               <img src={faculty.emblem_url} alt="" className="h-full w-full object-contain p-1" />
                             ) : (
@@ -667,7 +733,12 @@ function FacultyManagement() {
                                 <Building2 className="h-6 w-6 text-slate-400" />
                               </div>
                             )}
-                          </div>
+                            {emblemUploadingFacultyId === faculty.id && (
+                              <span className="absolute inset-0 flex items-center justify-center bg-white/85">
+                                <Loader2 className="h-5 w-5 animate-spin text-blue-600" aria-hidden />
+                              </span>
+                            )}
+                          </button>
                           <p className="min-w-0 break-words font-medium leading-snug text-slate-900" title={faculty.name}>
                             {faculty.name}
                           </p>
@@ -867,15 +938,27 @@ function FacultyManagement() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                   <div className="mb-3 flex justify-center">
-                    {faculty.emblem_url ? (
-                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <button
+                      type="button"
+                      title="Change faculty emblem"
+                      aria-label={`Upload emblem for ${faculty.name}`}
+                      disabled={!!emblemUploadingFacultyId}
+                      onClick={(e) => openFacultyEmblemPicker(faculty.id, e)}
+                      className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white ring-offset-2 transition hover:ring-2 hover:ring-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                    >
+                      {faculty.emblem_url ? (
                         <img src={faculty.emblem_url} alt="" className="h-full w-full object-contain p-1" />
-                      </div>
-                    ) : (
-                      <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
-                        <Building2 className="h-10 w-10 text-slate-400" />
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-slate-50">
+                          <Building2 className="h-10 w-10 text-slate-400" />
+                        </div>
+                      )}
+                      {emblemUploadingFacultyId === faculty.id && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-white/85">
+                          <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
+                        </span>
+                      )}
+                    </button>
                   </div>
                   <h3 className="mb-1 break-words text-center text-base font-semibold leading-snug text-slate-900" title={faculty.name}>
                     {faculty.name}
