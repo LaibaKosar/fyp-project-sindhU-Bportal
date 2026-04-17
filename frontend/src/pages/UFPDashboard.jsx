@@ -461,11 +461,7 @@ function UFPDashboard() {
     showCampusesDropdown || activeSection === 'campus-detail' || activeSection === 'campuses'
   const campusesListVisible = showCampusesDropdown || activeSection === 'campus-detail'
 
-  /** TEMP (restore tomorrow): show only main campus in sidebar — no DB change; other campuses still exist. */
-  const campusesNavList =
-    campuses.filter((c) => c.is_main_campus).length > 0
-      ? campuses.filter((c) => c.is_main_campus)
-      : campuses
+  const campusesNavList = campuses
 
   if (loading) {
     return (
