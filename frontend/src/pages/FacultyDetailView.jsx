@@ -19,6 +19,7 @@ import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../comp
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 import AddDepartmentInlineModal from '../components/AddDepartmentInlineModal'
 import UfpGlassFormModal from '../components/UfpGlassFormModal'
+import { recordSystemLog } from '../utils/systemLogs'
 
 function FacultyDetailView() {
   const navigate = useNavigate()
@@ -188,6 +189,12 @@ function FacultyDetailView() {
         .eq('faculty_id', facultyId)
       if (dbErr) throw new Error(dbErr.message || 'Database update failed')
       setDepartments((prev) => prev.map((d) => (d.id === deptId ? { ...d, hod_photo_url: url } : d)))
+      const updatedDepartment = departments.find((d) => d.id === deptId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_UPDATED',
+        details: `Updated HoD photo for department: ${updatedDepartment?.name || 'Unnamed department'}`,
+      })
       showToast('HOD photo updated')
     } catch (err) {
       console.error(err)
@@ -265,6 +272,12 @@ function FacultyDetailView() {
         throw new Error('Department is still present after delete attempt.')
       }
 
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_DELETED',
+        details: `Deleted department: ${selectedDepartmentForDelete.name || 'Unnamed department'} (cascade).`,
+      })
+
       await fetchDepartments()
       await fetchSummary()
       closeDeleteDepartmentModal()
@@ -291,6 +304,11 @@ function FacultyDetailView() {
       const { error: dbErr } = await supabase.from('faculties').update({ dean_photo_url: url }).eq('id', facultyId).eq('university_id', user.university_id)
       if (dbErr) throw new Error(dbErr.message || 'Database update failed')
       setFaculty((f) => (f ? { ...f, dean_photo_url: url } : f))
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'FACULTY_UPDATED',
+        details: `Updated dean photo for faculty: ${faculty?.name || 'Unnamed faculty'}`,
+      })
       await fetchFaculty()
     } catch (e) {
       console.error('Dean photo upload error:', e)
@@ -315,6 +333,11 @@ function FacultyDetailView() {
       const { error: dbErr } = await supabase.from('faculties').update({ dean_appointment_letter_url: url }).eq('id', facultyId).eq('university_id', user.university_id)
       if (dbErr) throw new Error(dbErr.message || 'Database update failed')
       setFaculty((f) => (f ? { ...f, dean_appointment_letter_url: url } : f))
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'FACULTY_UPDATED',
+        details: `Updated dean appointment letter for faculty: ${faculty?.name || 'Unnamed faculty'}`,
+      })
       await fetchFaculty()
     } catch (e) {
       console.error('Dean letter upload error:', e)

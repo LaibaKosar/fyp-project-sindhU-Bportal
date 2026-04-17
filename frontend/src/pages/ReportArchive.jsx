@@ -16,6 +16,7 @@ import {
   Upload
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Report Types
 const REPORT_TYPES = [
@@ -250,6 +251,12 @@ function ReportArchive() {
 
       if (error) throw error
 
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'REPORT_SUBMITTED',
+        details: `Submitted report: ${title} (${reportType}, ${fiscalYear}).`,
+      })
+
       showToast('Report uploaded successfully!', 'success')
       
       // Clear form
@@ -280,12 +287,19 @@ function ReportArchive() {
     }
 
     try {
+      const reportToDelete = reports.find((report) => report.id === reportId)
       const { error } = await supabase
         .from('university_reports')
         .delete()
         .eq('id', reportId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'REPORT_DELETED',
+        details: `Deleted report: ${reportToDelete?.title || 'Untitled report'}`,
+      })
 
       await fetchReports()
       showToast('Report deleted successfully', 'success')

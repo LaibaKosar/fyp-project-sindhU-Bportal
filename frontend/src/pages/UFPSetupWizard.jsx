@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Upload, X, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react'
+import { recordSystemLog } from '../utils/systemLogs'
 
 function UFPSetupWizard() {
   const navigate = useNavigate()
@@ -258,6 +259,13 @@ function UFPSetupWizard() {
       }
 
       console.log('Universities table updated successfully:', uniData)
+
+      await recordSystemLog({
+        universityId: currentProfile.university_id,
+        universityName: university?.name,
+        actionType: 'UFP_SETUP_SUBMITTED',
+        details: `Completed UFP setup wizard for ${university?.name || 'university profile'}.`,
+      })
 
       // Redirect to UFP dashboard
       navigate('/ufp-dashboard')

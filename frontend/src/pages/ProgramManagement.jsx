@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import { recordSystemLog } from '../utils/systemLogs'
 import {
   DEGREE_LEVEL_TO_KEY,
   PROGRAM_CATEGORIES,
@@ -306,6 +307,12 @@ function ProgramManagement() {
 
       if (error) throw error
 
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'PROGRAM_ADDED',
+        details: `Added program: ${data?.name || programName}`,
+      })
+
       showToast('Program added successfully!', 'success')
       
       // Clear form
@@ -331,12 +338,19 @@ function ProgramManagement() {
     }
 
     try {
+      const programToDelete = programs.find((p) => p.id === programId)
       const { error } = await supabase
         .from('programs')
         .delete()
         .eq('id', programId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'PROGRAM_DELETED',
+        details: `Deleted program: ${programToDelete?.name || 'Unnamed program'}`,
+      })
 
       await fetchPrograms()
       showToast('Program deleted successfully', 'success')

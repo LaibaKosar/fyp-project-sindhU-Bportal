@@ -17,6 +17,7 @@ import {
   Edit2
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 const CITIES = [
   'Karachi',
@@ -235,6 +236,12 @@ function CampusManagement() {
 
       // Also refresh from database to ensure consistency
       await fetchCampuses()
+      const updatedCampus = campuses.find((campus) => campus.id === campusId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'CAMPUS_UPDATED',
+        details: `Updated campus photo for: ${updatedCampus?.name || 'Unnamed campus'}`,
+      })
       showToast('Campus photo updated successfully!', 'success')
     } catch (error) {
       console.error('Error updating campus photo:', error)
@@ -328,6 +335,12 @@ function CampusManagement() {
       console.log('Inserted Data:', data)
       alert('CAMPUS SAVED!')
 
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'CAMPUS_ADDED',
+        details: `Added campus: ${campusName}${isMainCampus ? ' (Main Campus)' : ''}`,
+      })
+
       // Data Migration: If this is the main campus, link existing faculties with null campus_id
       if (isMainCampus && data?.id) {
         try {
@@ -342,6 +355,11 @@ function CampusManagement() {
             // Don't throw error - campus was created successfully, migration is secondary
           } else {
             console.log('Successfully linked existing faculties to main campus')
+            await recordSystemLog({
+              universityId: user.university_id,
+              actionType: 'FACULTY_UPDATED',
+              details: `Linked existing faculties to newly created main campus: ${campusName}.`,
+            })
           }
         } catch (migrationError) {
           console.warn('Warning: Error during faculty migration:', migrationError)
@@ -397,6 +415,7 @@ function CampusManagement() {
     }
 
     try {
+      const campusToDelete = campuses.find((campus) => campus.id === campusId)
       const { error } = await supabase
         .from('campuses')
         .delete()
@@ -405,6 +424,12 @@ function CampusManagement() {
       if (error) {
         throw new Error('Failed to delete campus: ' + error.message)
       }
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'CAMPUS_DELETED',
+        details: `Deleted campus: ${campusToDelete?.name || 'Unnamed campus'}`,
+      })
 
       // Refresh campuses list
       await fetchCampuses()

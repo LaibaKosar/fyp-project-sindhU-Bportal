@@ -361,6 +361,12 @@ function DepartmentManagement() {
 
       // Also refresh from database to ensure consistency
       await fetchDepartments()
+      const updatedDepartment = departments.find((dept) => dept.id === departmentId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_UPDATED',
+        details: `Updated HoD photo for department: ${updatedDepartment?.name || 'Unnamed department'}`,
+      })
       showToast('HOD photo updated successfully!', 'success')
     } catch (error) {
       console.error('Error updating HOD photo:', error)
@@ -384,6 +390,12 @@ function DepartmentManagement() {
       if (error) throw error
       setDepartments(prev => prev.map(d => d.id === departmentId ? { ...d, hod_appointment_letter_url: publicUrl } : d))
       await fetchDepartments()
+      const updatedDepartment = departments.find((dept) => dept.id === departmentId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_UPDATED',
+        details: `Updated HoD appointment letter for department: ${updatedDepartment?.name || 'Unnamed department'}`,
+      })
       showToast('Appointment letter updated.', 'success')
     } catch (err) {
       console.error(err)
@@ -569,6 +581,7 @@ function DepartmentManagement() {
     }
 
     try {
+      const departmentToDelete = departments.find((dept) => dept.id === id)
       const { error } = await supabase
         .from('departments')
         .delete()
@@ -577,6 +590,12 @@ function DepartmentManagement() {
       if (error) {
         throw new Error('Failed to delete department: ' + error.message)
       }
+
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_DELETED',
+        details: `Deleted department: ${departmentToDelete?.name || 'Unnamed department'}`,
+      })
 
       await fetchDepartments()
       showToast('Department deleted successfully!', 'success')

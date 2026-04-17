@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import UfpGlassFormModal from './UfpGlassFormModal'
+import { recordSystemLog } from '../utils/systemLogs'
 import {
   DEGREE_LEVEL_TO_KEY,
   PROGRAM_CATEGORIES,
@@ -68,6 +69,13 @@ export default function AddProgramInlineModal({
       }
       const { error } = await supabase.from('programs').insert(programData).select().single()
       if (error) throw error
+
+      await recordSystemLog({
+        universityId,
+        actionType: 'PROGRAM_ADDED',
+        details: `Added program: ${programName}${departmentName ? ` in ${departmentName}` : ''}`,
+      })
+
       await onSaved?.()
       onClose()
     } catch (err) {

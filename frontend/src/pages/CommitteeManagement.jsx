@@ -18,6 +18,7 @@ import {
   Edit2
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Roles in Committee
 const COMMITTEE_ROLES = [
@@ -141,6 +142,11 @@ function CommitteeManagement() {
         if (newCommittee) {
           setCommitteeId(newCommittee.id)
           setCommittees([newCommittee])
+          await recordSystemLog({
+            universityId: user.university_id,
+            actionType: 'COMMITTEE_ADDED',
+            details: `Created committee: ${committeeTitle}`,
+          })
         }
       }
     } catch (error) {
@@ -259,6 +265,13 @@ function CommitteeManagement() {
         )
       )
 
+      const updatedMember = members.find((member) => member.id === memberId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'COMMITTEE_MEMBER_UPDATED',
+        details: `Updated profile photo for ${updatedMember?.member_name || 'committee member'} (${committeeType}).`,
+      })
+
       showToast('Profile picture updated successfully!', 'success')
     } catch (error) {
       console.error('Error updating photo:', error)
@@ -327,6 +340,12 @@ function CommitteeManagement() {
 
       if (error) throw error
 
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'COMMITTEE_MEMBER_ADDED',
+        details: `Added ${committeeType} member: ${memberName} (${roleInCommittee}).`,
+      })
+
       showToast('Committee member added successfully!', 'success')
       
       // Clear form
@@ -358,12 +377,19 @@ function CommitteeManagement() {
     }
 
     try {
+      const memberToDelete = members.find((member) => member.id === memberId)
       const { error } = await supabase
         .from('committee_members')
         .delete()
         .eq('id', memberId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'COMMITTEE_MEMBER_DELETED',
+        details: `Deleted ${committeeType} member: ${memberToDelete?.member_name || 'Unnamed member'}.`,
+      })
 
       await fetchMembers()
       showToast('Committee member deleted successfully', 'success')

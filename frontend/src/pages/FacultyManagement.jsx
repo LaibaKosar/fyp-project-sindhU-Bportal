@@ -470,6 +470,7 @@ function FacultyManagement() {
     }
 
     try {
+      const facultyToDelete = faculties.find((f) => f.id === facultyId)
       const { error } = await supabase
         .from('faculties')
         .delete()
@@ -478,6 +479,12 @@ function FacultyManagement() {
       if (error) {
         throw new Error('Failed to delete faculty: ' + error.message)
       }
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'FACULTY_DELETED',
+        details: `Deleted faculty: ${facultyToDelete?.name || 'Unnamed faculty'}`,
+      })
 
       // Refresh faculties list
       await fetchFaculties()
@@ -531,6 +538,14 @@ function FacultyManagement() {
         .eq('id', facultyId)
         .eq('university_id', user.university_id)
       if (dbErr) throw new Error(dbErr.message)
+
+      const updatedFaculty = faculties.find((f) => f.id === facultyId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'FACULTY_UPDATED',
+        details: `Updated emblem for faculty: ${updatedFaculty?.name || 'Unnamed faculty'}`,
+      })
+
       await fetchFaculties()
       showToast('Faculty emblem updated')
     } catch (err) {
@@ -583,13 +598,13 @@ function FacultyManagement() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              {campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
-            </h2>
+            {campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
+          </h2>
             <p className="text-sm text-slate-600 sm:text-base">
-              {campusName
-                ? `Manage faculties for ${campusName}`
+            {campusName 
+              ? `Manage faculties for ${campusName}`
                 : "Manage your university's faculties and departments"}
-            </p>
+          </p>
           </div>
         </div>
       </motion.div>
@@ -884,59 +899,59 @@ function FacultyManagement() {
 
           {/* Mobile / tablet: quick add + stacked cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:hidden">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              onClick={() => setShowForm(true)}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            onClick={() => setShowForm(true)}
               className="flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 border-l-4 border-l-blue-600 bg-white p-6 shadow-sm transition-shadow hover:border-slate-400 hover:shadow-md"
-            >
+          >
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
                 <Plus className="h-6 w-6 text-blue-600" />
-              </div>
+            </div>
               <span className="text-sm font-semibold text-slate-800">Add Faculty</span>
               <span className="mt-1 text-center text-xs text-slate-500">Create a new faculty record</span>
-            </motion.div>
+          </motion.div>
 
-            {faculties.map((faculty, index) => {
-              const summary = summaryByFaculty[faculty.id] || {
-                departments_count: 0,
-                programs_count: 0,
-                teaching_staff_count: 0,
-                students_count: 0
-              }
-              const campusIdForNav = campusId || faculty.campus_id
-              const d = summary.departments_count
-              const p = summary.programs_count
-              const t = summary.teaching_staff_count
-              const s = summary.students_count
-              const insightParts = []
+          {faculties.map((faculty, index) => {
+            const summary = summaryByFaculty[faculty.id] || {
+              departments_count: 0,
+              programs_count: 0,
+              teaching_staff_count: 0,
+              students_count: 0
+            }
+            const campusIdForNav = campusId || faculty.campus_id
+            const d = summary.departments_count
+            const p = summary.programs_count
+            const t = summary.teaching_staff_count
+            const s = summary.students_count
+            const insightParts = []
               if (d) insightParts.push(`${d} dept${d !== 1 ? 's' : ''}`)
               if (p) insightParts.push(`${p} prog`)
               if (t) insightParts.push(`${t} staff`)
               if (s) insightParts.push(`${s} stud`)
               const insightText = insightParts.length ? insightParts.join(' · ') : 'No activity yet'
-              return (
-                <motion.div
-                  key={faculty.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
+            return (
+              <motion.div
+                key={faculty.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: (index + 1) * 0.05 }}
-                  onClick={() => campusIdForNav && navigate(`/ufp/campus/${campusIdForNav}/faculty/${faculty.id}`)}
+                onClick={() => campusIdForNav && navigate(`/ufp/campus/${campusIdForNav}/faculty/${faculty.id}`)}
                   className="relative flex cursor-pointer flex-col rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-5 shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
-                  title={insightText}
-                >
-                  <button
+                title={insightText}
+              >
+                <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(faculty.id)
-                    }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(faculty.id)
+                  }}
                     className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    title="Delete faculty"
-                  >
+                  title="Delete faculty"
+                >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                </button>
                   <div className="mb-3 flex justify-center">
                     <button
                       type="button"
@@ -946,13 +961,13 @@ function FacultyManagement() {
                       onClick={(e) => openFacultyEmblemPicker(faculty.id, e)}
                       className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white ring-offset-2 transition hover:ring-2 hover:ring-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                     >
-                      {faculty.emblem_url ? (
+                    {faculty.emblem_url ? (
                         <img src={faculty.emblem_url} alt="" className="h-full w-full object-contain p-1" />
-                      ) : (
+                    ) : (
                         <div className="flex h-full w-full items-center justify-center bg-slate-50">
                           <Building2 className="h-10 w-10 text-slate-400" />
-                        </div>
-                      )}
+                      </div>
+                    )}
                       {emblemUploadingFacultyId === faculty.id && (
                         <span className="absolute inset-0 flex items-center justify-center bg-white/85">
                           <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
@@ -961,104 +976,104 @@ function FacultyManagement() {
                     </button>
                   </div>
                   <h3 className="mb-1 break-words text-center text-base font-semibold leading-snug text-slate-900" title={faculty.name}>
-                    {faculty.name}
-                  </h3>
+                        {faculty.name}
+                      </h3>
                   <p className="mb-1 text-center font-mono text-xs text-slate-500">{faculty.code}</p>
-                  {!campusId && faculty.campuses?.name && (
+                      {!campusId && faculty.campuses?.name && (
                     <p className="mb-2 text-center text-xs text-slate-500">{faculty.campuses.name}</p>
-                  )}
+                      )}
                   <p className="mb-3 text-center text-sm text-slate-600">Dean: {faculty.dean_name || '—'}</p>
                   <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-sm">
-                    <div
+                      <div
                       className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
-                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('depts') }}
-                      onMouseLeave={() => setHoverMetric(null)}
-                    >
+                        onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('depts') }}
+                        onMouseLeave={() => setHoverMetric(null)}
+                      >
                       <Building2 className="h-4 w-4 text-blue-600" strokeWidth={2} />
                       <span className="font-semibold tabular-nums">{d}</span>
                       <span className="text-xs text-slate-500">Depts</span>
-                      {hoverFacultyId === faculty.id && hoverMetric === 'depts' && (
+                        {hoverFacultyId === faculty.id && hoverMetric === 'depts' && (
                         <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
                           <h4 className="mb-2 text-xs font-semibold">Departments</h4>
                           {departmentsByFaculty[faculty.id]?.length ? (
                             <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                              {departmentsByFaculty[faculty.id].map((dpt) => (
+                                {departmentsByFaculty[faculty.id].map((dpt) => (
                                 <li key={dpt.id}>{dpt.name}</li>
-                              ))}
-                            </ul>
-                          ) : (
+                                ))}
+                              </ul>
+                            ) : (
                             <p className="text-xs text-slate-300">None yet.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div
                       className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
-                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('programs') }}
-                      onMouseLeave={() => setHoverMetric(null)}
-                    >
+                        onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('programs') }}
+                        onMouseLeave={() => setHoverMetric(null)}
+                      >
                       <BookOpen className="h-4 w-4 text-amber-500" strokeWidth={2} />
                       <span className="font-semibold tabular-nums">{p}</span>
                       <span className="text-xs text-slate-500">Prog</span>
-                      {hoverFacultyId === faculty.id && hoverMetric === 'programs' && (
+                        {hoverFacultyId === faculty.id && hoverMetric === 'programs' && (
                         <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
                           <h4 className="mb-2 text-xs font-semibold">Programs</h4>
                           {programsByFaculty[faculty.id]?.length ? (
                             <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                              {programsByFaculty[faculty.id].map((prog) => (
+                                {programsByFaculty[faculty.id].map((prog) => (
                                 <li key={prog.id}>{prog.name}</li>
-                              ))}
-                            </ul>
-                          ) : (
+                                ))}
+                              </ul>
+                            ) : (
                             <p className="text-xs text-slate-300">None yet.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div
                       className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
-                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('staff') }}
-                      onMouseLeave={() => setHoverMetric(null)}
-                    >
+                        onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('staff') }}
+                        onMouseLeave={() => setHoverMetric(null)}
+                      >
                       <UserCheck className="h-4 w-4 text-emerald-600" strokeWidth={2} />
                       <span className="font-semibold tabular-nums">{t}</span>
                       <span className="text-xs text-slate-500">Staff</span>
-                      {hoverFacultyId === faculty.id && hoverMetric === 'staff' && (
+                        {hoverFacultyId === faculty.id && hoverMetric === 'staff' && (
                         <div className="absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
                           <h4 className="mb-2 text-xs font-semibold">Staff</h4>
                           {staffByFaculty[faculty.id]?.length ? (
                             <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                              {staffByFaculty[faculty.id].map((st) => (
+                                {staffByFaculty[faculty.id].map((st) => (
                                 <li key={st.id}>{st.full_name}</li>
-                              ))}
-                            </ul>
-                          ) : (
+                                ))}
+                              </ul>
+                            ) : (
                             <p className="text-xs text-slate-300">None yet.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div
                       className="relative flex items-center justify-center gap-1 rounded-lg bg-slate-50 py-2"
-                      onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('students') }}
-                      onMouseLeave={() => setHoverMetric(null)}
-                    >
+                        onMouseEnter={() => { setHoverFacultyId(faculty.id); setHoverMetric('students') }}
+                        onMouseLeave={() => setHoverMetric(null)}
+                      >
                       <GraduationCap className="h-4 w-4 text-pink-600" strokeWidth={2} />
                       <span className="font-semibold tabular-nums">{s}</span>
                       <span className="text-xs text-slate-500">Stud</span>
-                      {hoverFacultyId === faculty.id && hoverMetric === 'students' && (
+                        {hoverFacultyId === faculty.id && hoverMetric === 'students' && (
                         <div className="absolute bottom-full left-1/2 z-20 mb-2 w-56 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-left text-white shadow-xl">
                           <p className="text-lg font-bold">{s}</p>
                           <p className="text-[11px] text-slate-300">Enrollment total</p>
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
                   <p className="mt-3 text-center text-xs font-medium text-blue-700">Tap to open faculty</p>
-                </motion.div>
-              )
-            })}
-          </div>
+              </motion.div>
+            )
+          })}
+        </div>
         </section>
       )}
 
@@ -1209,14 +1224,14 @@ function FacultyManagement() {
                 <label className="block text-sm font-medium text-slate-900 mb-2">
                   Dean / Focal Person Name <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={deanName}
-                  onChange={(e) => setDeanName(e.target.value)}
-                  placeholder="Enter dean's full name"
+                  <input
+                    type="text"
+                    value={deanName}
+                    onChange={(e) => setDeanName(e.target.value)}
+                    placeholder="Enter dean's full name"
                   className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
-                  required
-                />
+                    required
+                  />
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">
                   Kindly register the dean as a staff member as well when possible — it keeps records aligned and helps with board management workflows.
                 </p>

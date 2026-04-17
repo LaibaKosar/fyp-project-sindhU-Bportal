@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { recordSystemLog } from '../utils/systemLogs'
 import { 
   LayoutDashboard, 
   Building2, 
@@ -327,6 +328,12 @@ function UFPDashboard() {
 
       // Update local state
       setUniversity(prev => ({ ...prev, logo_url: urlData.publicUrl }))
+      await recordSystemLog({
+        universityId: user.university_id,
+        universityName: university?.name,
+        actionType: 'UNIVERSITY_LOGO_UPDATED',
+        details: 'Updated university logo from dashboard.',
+      })
       alert('Logo updated successfully!')
     } catch (error) {
       console.error('Error uploading logo:', error)
@@ -382,6 +389,12 @@ function UFPDashboard() {
       // Update local state immediately for instant UI update
       setBackgroundUrl(urlData.publicUrl)
       console.log('Background state updated, UI refreshed')
+      await recordSystemLog({
+        universityId: user.university_id,
+        universityName: university?.name,
+        actionType: 'DASHBOARD_BACKGROUND_UPDATED',
+        details: 'Updated dashboard background image.',
+      })
       
       alert('Dashboard background updated successfully!')
     } catch (error) {
@@ -413,6 +426,12 @@ function UFPDashboard() {
 
       // Update local state immediately
       setBackgroundUrl(null)
+      await recordSystemLog({
+        universityId: user.university_id,
+        universityName: university?.name,
+        actionType: 'DASHBOARD_BACKGROUND_REMOVED',
+        details: 'Removed dashboard background image.',
+      })
       
       alert('Dashboard background removed successfully!')
     } catch (error) {

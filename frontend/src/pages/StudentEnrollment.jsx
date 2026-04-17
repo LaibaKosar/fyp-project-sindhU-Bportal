@@ -14,6 +14,7 @@ import Breadcrumbs from '../components/Breadcrumbs'
 import EnrollmentReportCard from '../components/EnrollmentReportCard'
 import EnrollmentReportDetailModal from '../components/EnrollmentReportDetailModal'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Academic Years (2024-2030)
 const ACADEMIC_YEARS = [
@@ -255,6 +256,13 @@ function StudentEnrollment() {
 
       if (error) throw error
 
+      const selectedProgram = programs.find((p) => p.id === programId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'ENROLLMENT_REPORT_SUBMITTED',
+        details: `Submitted enrollment report for ${selectedProgram?.name || 'program'} (${academicYear}, ${semester}).`,
+      })
+
       showToast('Enrollment report added successfully!', 'success')
       
       // Clear form; keep URL-prefilled campus / program so the next add works without re-selecting
@@ -281,12 +289,21 @@ function StudentEnrollment() {
     }
 
     try {
+      const enrollmentToDelete = enrollments.find((enrollment) => enrollment.id === enrollmentId)
       const { error } = await supabase
         .from('enrollment_reports')
         .delete()
         .eq('id', enrollmentId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'ENROLLMENT_REPORT_DELETED',
+        details: `Deleted enrollment report for ${
+          enrollmentToDelete?.programs?.name || 'program'
+        } (${enrollmentToDelete?.academic_year || 'N/A'}, ${enrollmentToDelete?.semester || 'N/A'}).`,
+      })
 
       await fetchEnrollments()
       showToast('Enrollment report deleted successfully', 'success')

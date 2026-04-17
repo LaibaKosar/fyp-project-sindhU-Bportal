@@ -22,6 +22,7 @@ import {
   User
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { recordSystemLog } from '../utils/systemLogs'
 
 // Board Levels
 const BOARD_LEVELS = {
@@ -336,6 +337,11 @@ function BoardManagement() {
 
         error = updateError
         if (!error) {
+          await recordSystemLog({
+            universityId: user.university_id,
+            actionType: 'BOARD_UPDATED',
+            details: `Updated board: ${boardName}`,
+          })
           showToast('Board updated successfully!', 'success')
         }
       } else {
@@ -346,6 +352,11 @@ function BoardManagement() {
 
         error = insertError
         if (!error) {
+          await recordSystemLog({
+            universityId: user.university_id,
+            actionType: 'BOARD_ADDED',
+            details: `Added board: ${boardName}`,
+          })
           showToast('Board created successfully!', 'success')
         }
       }
@@ -409,6 +420,12 @@ function BoardManagement() {
         .insert([memberData])
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'BOARD_MEMBER_ADDED',
+        details: `Added board member: ${memberName} (${memberRole}) in ${selectedBoard?.name || 'board'}.`,
+      })
 
       showToast('Member added successfully!', 'success')
       
@@ -497,6 +514,7 @@ function BoardManagement() {
     }
 
     try {
+      const boardToDelete = boards.find((board) => board.id === boardId)
       // Delete members first
       await supabase
         .from('board_members')
@@ -510,6 +528,12 @@ function BoardManagement() {
         .eq('id', boardId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'BOARD_DELETED',
+        details: `Deleted board: ${boardToDelete?.name || 'Unnamed board'}`,
+      })
 
       await fetchBoards()
       showToast('Board deleted successfully', 'success')
@@ -525,12 +549,19 @@ function BoardManagement() {
     }
 
     try {
+      const memberToDelete = boardMembers.find((member) => member.id === memberId)
       const { error } = await supabase
         .from('board_members')
         .delete()
         .eq('id', memberId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'BOARD_MEMBER_DELETED',
+        details: `Removed board member: ${memberToDelete?.full_name || 'Unnamed member'} from ${selectedBoard?.name || 'board'}.`,
+      })
 
       await fetchBoardMembers()
       showToast('Member removed successfully', 'success')

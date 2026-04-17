@@ -22,6 +22,7 @@ import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../comp
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 import AddProgramInlineModal from '../components/AddProgramInlineModal'
 import AddTeachingStaffInlineModal from '../components/AddTeachingStaffInlineModal'
+import { recordSystemLog } from '../utils/systemLogs'
 
 /** Must match `DEGREE_LEVELS` in ProgramManagement.jsx (add program form). */
 const PROGRAM_DEGREE_LEVEL_FILTER_OPTIONS = [
@@ -248,12 +249,18 @@ function DepartmentDetailView() {
       return
     }
     try {
+      const programToDelete = programs.find((program) => program.id === programId)
       const { error } = await supabase
         .from('programs')
         .delete()
         .eq('id', programId)
         .eq('department_id', deptId)
       if (error) throw error
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'PROGRAM_DELETED',
+        details: `Deleted program: ${programToDelete?.name || 'Unnamed program'}`,
+      })
       await fetchPrograms()
       showToast('Program deleted successfully.')
     } catch (error) {
@@ -267,6 +274,7 @@ function DepartmentDetailView() {
       return
     }
     try {
+      const staffToDelete = teachingStaff.find((staffMember) => staffMember.id === staffId)
       const { error } = await supabase
         .from('staff')
         .delete()
@@ -274,6 +282,11 @@ function DepartmentDetailView() {
         .eq('department_id', deptId)
         .eq('type', 'Teaching')
       if (error) throw error
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'STAFF_DELETED',
+        details: `Deleted teaching staff member: ${staffToDelete?.full_name || 'Unnamed staff member'}`,
+      })
       await fetchTeachingStaff()
       showToast('Staff member deleted successfully.')
     } catch (error) {
@@ -287,6 +300,7 @@ function DepartmentDetailView() {
       return
     }
     try {
+      const staffToDelete = nonTeachingStaff.find((staffMember) => staffMember.id === staffId)
       const { error } = await supabase
         .from('staff')
         .delete()
@@ -294,6 +308,11 @@ function DepartmentDetailView() {
         .eq('department_id', deptId)
         .eq('type', 'Non-Teaching')
       if (error) throw error
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'STAFF_DELETED',
+        details: `Deleted non-teaching staff member: ${staffToDelete?.full_name || 'Unnamed staff member'}`,
+      })
       await fetchNonTeachingStaff()
       showToast('Staff member deleted successfully.')
     } catch (error) {
@@ -340,6 +359,12 @@ function DepartmentDetailView() {
         .eq('department_id', deptId)
         .eq('type', 'Teaching')
       if (updateError) throw new Error(updateError.message)
+      const updatedStaff = teachingStaff.find((staffMember) => staffMember.id === staffId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'STAFF_UPDATED',
+        details: `Updated profile photo for teaching staff: ${updatedStaff?.full_name || 'Unnamed staff member'}`,
+      })
       await fetchTeachingStaff()
       showToast('Staff photo updated.')
     } catch (err) {
@@ -388,6 +413,12 @@ function DepartmentDetailView() {
         .eq('department_id', deptId)
         .eq('type', 'Non-Teaching')
       if (updateError) throw new Error(updateError.message)
+      const updatedStaff = nonTeachingStaff.find((staffMember) => staffMember.id === staffId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'STAFF_UPDATED',
+        details: `Updated profile photo for non-teaching staff: ${updatedStaff?.full_name || 'Unnamed staff member'}`,
+      })
       await fetchNonTeachingStaff()
       showToast('Staff photo updated.')
     } catch (err) {
@@ -412,6 +443,11 @@ function DepartmentDetailView() {
       const { error: dbErr } = await supabase.from('departments').update({ hod_photo_url: url }).eq('id', deptId).eq('university_id', user.university_id)
       if (dbErr) throw new Error(dbErr.message || 'Database update failed')
       setDepartment((d) => (d ? { ...d, hod_photo_url: url } : d))
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_UPDATED',
+        details: `Updated HoD photo for department: ${department?.name || 'Unnamed department'}`,
+      })
       await fetchDepartment()
     } catch (e) {
       console.error('HOD photo upload error:', e)
@@ -436,6 +472,11 @@ function DepartmentDetailView() {
       const { error: dbErr } = await supabase.from('departments').update({ hod_appointment_letter_url: url }).eq('id', deptId).eq('university_id', user.university_id)
       if (dbErr) throw new Error(dbErr.message || 'Database update failed')
       setDepartment((d) => (d ? { ...d, hod_appointment_letter_url: url } : d))
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'DEPARTMENT_UPDATED',
+        details: `Updated HoD appointment letter for department: ${department?.name || 'Unnamed department'}`,
+      })
       await fetchDepartment()
     } catch (e) {
       console.error('HOD letter upload error:', e)

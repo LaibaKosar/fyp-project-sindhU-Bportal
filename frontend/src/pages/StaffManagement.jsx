@@ -451,6 +451,12 @@ function StaffManagement() {
       )
 
       await fetchStaff()
+      const updatedStaff = staff.find((member) => member.id === staffId)
+      await recordSystemLog({
+        universityId: user.university_id,
+        actionType: 'STAFF_UPDATED',
+        details: `Updated profile photo for staff: ${updatedStaff?.full_name || 'Unnamed staff member'}`,
+      })
       showToast('Staff photo updated successfully!', 'success')
     } catch (error) {
       console.error('Error updating photo:', error)
@@ -612,12 +618,19 @@ function StaffManagement() {
     }
 
     try {
+      const staffToDelete = staff.find((member) => member.id === staffId)
       const { error } = await supabase
         .from('staff')
         .delete()
         .eq('id', staffId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'STAFF_DELETED',
+        details: `Deleted staff member: ${staffToDelete?.full_name || 'Unnamed staff member'}`,
+      })
 
       await fetchStaff()
       showToast('Staff member deleted successfully', 'success')

@@ -294,12 +294,21 @@ function MeetingManagement() {
     }
 
     try {
+      const meetingToDelete = meetings.find((meeting) => meeting.id === meetingId)
       const { error } = await supabase
         .from('meetings')
         .delete()
         .eq('id', meetingId)
 
       if (error) throw error
+
+      await recordSystemLog({
+        universityId: user?.university_id,
+        actionType: 'BOARD_MEETING_DELETED',
+        details: `Deleted ${meetingToDelete?.body_type || 'governance'} meeting: ${
+          meetingToDelete?.subject || 'Untitled'
+        }`,
+      })
 
       await fetchMeetings()
       showToast('Meeting record deleted successfully', 'success')

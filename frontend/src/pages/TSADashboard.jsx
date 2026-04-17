@@ -10,6 +10,12 @@ import {
   Loader2,
   CheckCircle,
   X,
+  Search,
+  Filter,
+  ShieldCheck,
+  Database,
+  HardDrive,
+  Clock3,
 } from 'lucide-react'
 
 const ROLES = ['TSA', 'U&B_ADMIN', 'UFP']
@@ -22,7 +28,7 @@ const MOCK_CONFIG = {
 
 function TSADashboard() {
   const navigate = useNavigate()
-  const [activeModule, setActiveModule] = useState('health')
+  const [activeModule, setActiveModule] = useState('users')
   const [hecSocial, setHecSocial] = useState(MOCK_CONFIG.hecSocialScience)
   const [hecScience, setHecScience] = useState(MOCK_CONFIG.hecScience)
   const [maintenanceOn, setMaintenanceOn] = useState(MOCK_CONFIG.maintenanceMode)
@@ -32,14 +38,27 @@ function TSADashboard() {
   const [usersLoading, setUsersLoading] = useState(false)
   const [usersError, setUsersError] = useState(null)
   const [resettingUserId, setResettingUserId] = useState(null)
-  const [updatingRoleUserId, setUpdatingRoleUserId] = useState(null)
   const [lockingUserId, setLockingUserId] = useState(null)
   const [toast, setToast] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [accessFilter, setAccessFilter] = useState('all')
+  const [setupFilter, setSetupFilter] = useState('all')
+  const [recentActivity, setRecentActivity] = useState([])
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
     const t = setTimeout(() => setToast(null), 5000)
     return () => clearTimeout(t)
+  }, [])
+
+  const appendRecentActivity = useCallback((message) => {
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      message,
+      timestamp: new Date().toISOString(),
+    }
+    setRecentActivity((prev) => [entry, ...prev].slice(0, 5))
   }, [])
 
   // Call RPC to bypass session/RLS filters; get_all_users_admin returns all users for TSA admin.
@@ -66,6 +85,7 @@ function TSADashboard() {
 
       setUsers(mapped)
       setUsersError(null)
+      appendRecentActivity(`Loaded ${mapped.length} account${mapped.length === 1 ? '' : 's'} from admin source.`)
     } catch (err) {
       console.error('Fetch Error:', err)
       setUsersError(err?.message ?? 'Something went wrong')
@@ -74,7 +94,7 @@ function TSADashboard() {
     } finally {
       setUsersLoading(false)
     }
-  }, [showToast])
+  }, [appendRecentActivity, showToast])
 
   // Single initial load only – no re-run on error to avoid recursion/loops; Refresh is manual
   const hasFetchedUsers = useRef(false)
@@ -96,29 +116,13 @@ function TSADashboard() {
       if (error) throw error
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_setup_complete: false } : u)))
       showToast('Setup reset successfully.', 'success')
+      appendRecentActivity(`Setup reset for ${user.email || user.full_name || 'user account'}.`)
     } catch (err) {
       showToast(err?.message || 'Failed to reset setup.', 'error')
     } finally {
       setResettingUserId(null)
     }
-  }, [resettingUserId, showToast])
-
-  const handleRoleChange = useCallback(async (userId, newRole) => {
-    if (!ROLES.includes(newRole)) return
-    if (updatingRoleUserId) return
-    setUpdatingRoleUserId(userId)
-    try {
-      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
-
-      if (error) throw error
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)))
-      showToast('Role updated.', 'success')
-    } catch (err) {
-      showToast(err?.message || 'Failed to update role.', 'error')
-    } finally {
-      setUpdatingRoleUserId(null)
-    }
-  }, [updatingRoleUserId, showToast])
+  }, [appendRecentActivity, resettingUserId, showToast])
 
   const handleLockToggle = useCallback(async (user) => {
     if (lockingUserId) return
@@ -132,12 +136,15 @@ function TSADashboard() {
       if (error) throw error
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_locked: !u.is_locked } : u)))
       showToast(user.is_locked ? 'User unlocked.' : 'User locked.', 'success')
+      appendRecentActivity(
+        `${user.is_locked ? 'Unlocked' : 'Locked'} ${user.email || user.full_name || 'user account'}.`
+      )
     } catch (err) {
       showToast(err?.message || 'Failed to update lock.', 'error')
     } finally {
       setLockingUserId(null)
     }
-  }, [lockingUserId, showToast])
+  }, [appendRecentActivity, lockingUserId, showToast])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -145,9 +152,40 @@ function TSADashboard() {
   }
 
   const navItems = [
-    { id: 'users', label: 'User Management', icon: Users },
-    { id: 'config', label: 'Environment Config', icon: Settings },
+    { id: 'users', label: 'System Account Management', icon: Users },
   ]
+
+  const totalUsers = users.length
+  const ufpAccounts = users.filter((u) => u.role === 'UFP').length
+  const lockedAccounts = users.filter((u) => u.is_locked).length
+  const pendingSetupAccounts = users.filter((u) => u.role === 'UFP' && !u.is_setup_complete).length
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      u.full_name?.toLowerCase().includes(normalizedSearch) ||
+      u.email?.toLowerCase().includes(normalizedSearch)
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter
+    const matchesAccess =
+      accessFilter === 'all' ||
+      (accessFilter === 'locked' && u.is_locked) ||
+      (accessFilter === 'unlocked' && !u.is_locked)
+    const matchesSetup =
+      setupFilter === 'all' ||
+      (setupFilter === 'complete' && u.is_setup_complete) ||
+      (setupFilter === 'incomplete' && !u.is_setup_complete)
+    return matchesSearch && matchesRole && matchesAccess && matchesSetup
+  })
+
+  const StatusPill = ({ ok, okLabel, badLabel, okClass, badClass }) => (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+        ok ? okClass : badClass
+      }`}
+    >
+      {ok ? okLabel : badLabel}
+    </span>
+  )
 
   const roleBadgeClass = (role) => {
     if (role === 'TSA') return 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
@@ -195,9 +233,14 @@ function TSADashboard() {
       {/* Main content - only this area scrolls */}
       <main className="flex-1 min-h-0 overflow-auto">
         {activeModule === 'users' && (
-          <div className="p-6">
+          <div className="p-6 space-y-8">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <h1 className="text-2xl font-bold text-white">User Management</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-white">System Account Management</h1>
+                <p className="mt-1 text-sm text-slate-400">
+                  Platform-level control for account setup and access status.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => fetchUsers()}
@@ -208,79 +251,162 @@ function TSADashboard() {
                 Refresh
               </button>
             </div>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-slate-700/60 bg-slate-800/55 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total Users</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums text-white">{totalUsers}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-500/25 bg-slate-800/55 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">UFP Accounts</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums text-emerald-300">{ufpAccounts}</p>
+              </div>
+              <div className="rounded-xl border border-amber-500/25 bg-slate-800/55 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Locked Accounts</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums text-amber-300">{lockedAccounts}</p>
+              </div>
+              <div className="rounded-xl border border-violet-500/25 bg-slate-800/55 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending Setup</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums text-violet-300">{pendingSetupAccounts}</p>
+              </div>
+            </section>
             {usersError && (
               <p className="mb-4 text-amber-400 text-sm">Failed to load users. Use Refresh to try again.</p>
             )}
-            <div className="rounded-lg border border-slate-700/50 overflow-hidden">
+            <section className="rounded-xl border border-slate-700/60 bg-slate-900/25 p-4">
+              <div className="mb-3 flex items-center gap-2 text-slate-300">
+                <Filter className="h-4 w-4" />
+                <h2 className="text-sm font-semibold uppercase tracking-wide">Search and filters</h2>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Search account</label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Name or email"
+                      className="w-full rounded-lg border border-slate-600 bg-slate-800 py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Role</label>
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All Roles</option>
+                    {ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role === 'U&B_ADMIN' ? 'U&B Admin' : role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Access status</label>
+                  <select
+                    value={accessFilter}
+                    onChange={(e) => setAccessFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All</option>
+                    <option value="locked">Locked</option>
+                    <option value="unlocked">Unlocked</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-400">Setup status</label>
+                  <select
+                    value={setupFilter}
+                    onChange={(e) => setSetupFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All</option>
+                    <option value="complete">Complete</option>
+                    <option value="incomplete">Incomplete</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+            <section className="rounded-xl border border-slate-700/60 bg-slate-900/30 overflow-hidden">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-800 text-slate-300 text-sm">
-                    <th className="px-4 py-3 font-medium">Full name</th>
-                    <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium">Role</th>
-                    <th className="px-4 py-3 font-medium">University</th>
-                    <th className="px-4 py-3 font-medium">Setup complete</th>
-                    <th className="px-4 py-3 font-medium">Locked</th>
-                    <th className="px-4 py-3 font-medium">Actions</th>
+                  <tr className="bg-slate-800/90 text-slate-300 text-xs uppercase tracking-wide">
+                    <th className="px-3 py-2.5 font-semibold">Account</th>
+                    <th className="px-3 py-2.5 font-semibold">Role</th>
+                    <th className="px-3 py-2.5 font-semibold">University</th>
+                    <th className="px-3 py-2.5 font-semibold">Setup</th>
+                    <th className="px-3 py-2.5 font-semibold">Access</th>
+                    <th className="px-3 py-2.5 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usersLoading && users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                         Loading users…
                       </td>
                     </tr>
-                  ) : users.length === 0 ? (
+                  ) : filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                        No users found.
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                        {users.length === 0 ? 'No users found.' : 'No users match the selected filters.'}
                       </td>
                     </tr>
                   ) : (
-                    users.map((u) => (
-                      <tr key={u.id} className="bg-slate-800/50 border-t border-slate-700/50 hover:bg-slate-700/30">
-                        <td className="px-4 py-3 text-slate-200">{u.full_name || '—'}</td>
-                        <td className="px-4 py-3 text-white font-medium">{u.email}</td>
-                        <td className="px-4 py-3">
+                    filteredUsers.map((u) => (
+                      <tr key={u.id} className="bg-slate-800/40 border-t border-slate-700/60 hover:bg-slate-700/25">
+                        <td className="px-3 py-2.5">
+                          <div className="text-sm font-medium text-white">{u.full_name || '—'}</div>
+                          <div className="mt-0.5 text-xs text-slate-400">{u.email}</div>
+                        </td>
+                        <td className="px-3 py-2.5">
                           <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleBadgeClass(u.role)}`}>
                             {u.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-300">{u.university_name}</td>
-                        <td className="px-4 py-3 text-slate-300">{u.is_setup_complete ? 'Yes' : 'No'}</td>
-                        <td className="px-4 py-3 text-slate-300">{u.is_locked ? 'Yes' : 'No'}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2 items-center">
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                              disabled={updatingRoleUserId === u.id}
-                              className="px-2 py-1 text-xs rounded bg-slate-700 border border-slate-600 text-slate-200 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                            >
-                              {ROLES.map((r) => (
-                                <option key={r} value={r}>
-                                  {r}
-                                </option>
-                              ))}
-                            </select>
+                        <td className="px-3 py-2.5 text-sm text-slate-300">{u.university_name}</td>
+                        <td className="px-3 py-2.5">
+                          <StatusPill
+                            ok={u.is_setup_complete}
+                            okLabel="Complete"
+                            badLabel="Incomplete"
+                            okClass="bg-emerald-500/20 text-emerald-300 border border-emerald-500/35"
+                            badClass="bg-violet-500/20 text-violet-300 border border-violet-500/35"
+                          />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <StatusPill
+                            ok={!u.is_locked}
+                            okLabel="Unlocked"
+                            badLabel="Locked"
+                            okClass="bg-sky-500/20 text-sky-300 border border-sky-500/35"
+                            badClass="bg-amber-500/20 text-amber-300 border border-amber-500/35"
+                          />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-wrap justify-end gap-1.5 items-center">
                             {u.role === 'UFP' && (
                               <button
                                 type="button"
                                 onClick={() => handleResetSetup(u)}
                                 disabled={resettingUserId === u.id}
-                                className="px-2 py-1 text-xs rounded bg-slate-600 text-slate-300 hover:bg-slate-500 border border-slate-500 disabled:opacity-50 flex items-center gap-1"
+                                className="px-2.5 py-1 text-xs rounded-md bg-slate-700 text-slate-200 hover:bg-slate-600 border border-slate-500/70 disabled:opacity-50 flex items-center gap-1"
                               >
                                 {resettingUserId === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                                Reset setup
+                                Reset
                               </button>
                             )}
                             <button
                               type="button"
                               onClick={() => handleLockToggle(u)}
                               disabled={lockingUserId === u.id}
-                              className="px-2 py-1 text-xs rounded bg-slate-600 text-slate-300 hover:bg-slate-500 border border-slate-500 disabled:opacity-50 flex items-center gap-1"
+                              className="px-2.5 py-1 text-xs rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/40 disabled:opacity-50 flex items-center gap-1"
                             >
                               {lockingUserId === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                               {u.is_locked ? 'Unlock' : 'Lock'}
@@ -292,15 +418,75 @@ function TSADashboard() {
                   )}
                 </tbody>
               </table>
+            </section>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <section className="rounded-xl border border-slate-700/60 bg-slate-900/25 p-4">
+                <h2 className="text-base font-semibold text-white">System Status</h2>
+                <p className="mt-1 text-xs text-slate-400">Operational indicators for this environment.</p>
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-emerald-300">
+                      <ShieldCheck className="h-4 w-4" />
+                      Authentication
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Active</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-emerald-300">
+                      <Database className="h-4 w-4" />
+                      Database
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Connected</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-emerald-300">
+                      <HardDrive className="h-4 w-4" />
+                      Storage
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Operational</span>
+                  </div>
+                  <div className="pt-2 text-sm text-slate-300">
+                    Mode:{' '}
+                    <span className="rounded-md border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                      Demo / Production
+                    </span>
+                  </div>
+                </div>
+              </section>
+              <section className="rounded-xl border border-slate-700/60 bg-slate-900/25 p-4">
+                <div className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4 text-slate-300" />
+                  <h2 className="text-base font-semibold text-white">Recent Activity</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Latest administrative actions for quick audit visibility.</p>
+                <div className="mt-4 space-y-2">
+                  {recentActivity.length === 0 ? (
+                    <div className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-slate-400">
+                      No recent actions in this session yet.
+                    </div>
+                  ) : (
+                    recentActivity.map((entry) => (
+                      <div key={entry.id} className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2">
+                        <p className="text-sm text-slate-200">{entry.message}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
             </div>
-          </div>
-        )}
 
-        {activeModule === 'config' && (
-          <div className="p-6 space-y-6">
-            <h1 className="text-2xl font-bold text-white">Environment Config</h1>
+            <section className="pt-2 space-y-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-slate-300" />
+                <h2 className="text-xl font-semibold text-white">Environment Config</h2>
+              </div>
+              <p className="text-sm text-slate-400">Secondary operational controls for platform behavior.</p>
 
-            <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-6 max-w-xl">
+              <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-6 max-w-xl">
               <h2 className="text-lg font-semibold text-slate-200 mb-4">Threshold settings</h2>
               <div className="space-y-4">
                 <div>
@@ -328,9 +514,9 @@ function TSADashboard() {
                   Save Changes
                 </button>
               </div>
-            </div>
+              </div>
 
-            <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-6 max-w-xl">
+              <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-6 max-w-xl">
               <h2 className="text-lg font-semibold text-slate-200 mb-4">Maintenance mode</h2>
               <div className="flex items-center gap-4">
                 <span className="text-slate-300">Maintenance mode: {maintenanceOn ? 'ON' : 'OFF'}</span>
@@ -345,7 +531,8 @@ function TSADashboard() {
                   {maintenanceOn ? 'Turn OFF' : 'Big Red Button (mock)'}
                 </button>
               </div>
-            </div>
+              </div>
+            </section>
           </div>
         )}
       </main>
