@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   XCircle,
   Camera,
-  Edit2,
   Landmark,
 } from 'lucide-react'
 import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
@@ -106,6 +105,7 @@ function CommitteeManagement() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [editingPhotoFor, setEditingPhotoFor] = useState(null)
   const [acDuplicateCommittees, setAcDuplicateCommittees] = useState(false)
+  const [selectedMemberId, setSelectedMemberId] = useState(null)
 
   // Form state
   const [memberName, setMemberName] = useState('')
@@ -133,6 +133,20 @@ function CommitteeManagement() {
       fetchMembers()
     }
   }, [committeeId, user])
+
+  const resolvedMemberId = useMemo(() => {
+    if (members.length === 0) return null
+    if (selectedMemberId != null && members.some((m) => m.id === selectedMemberId)) {
+      return selectedMemberId
+    }
+    return members[0].id
+  }, [members, selectedMemberId])
+
+  const selectedMember = useMemo(
+    () =>
+      resolvedMemberId != null ? members.find((m) => m.id === resolvedMemberId) ?? null : null,
+    [members, resolvedMemberId]
+  )
 
   const loadUserData = async () => {
     try {
@@ -458,6 +472,7 @@ function CommitteeManagement() {
       // Show the new member card immediately without requiring a page reload.
       if (data) {
         setMembers((prev) => [data, ...prev])
+        if (data.id) setSelectedMemberId(data.id)
       }
 
       showToast(
@@ -549,6 +564,10 @@ function CommitteeManagement() {
     setTimeout(() => setToast(null), 5000)
   }
 
+  const detailPanelStatus =
+    selectedMember != null ? getStatus(selectedMember.term_start, selectedMember.term_end) : null
+  const DetailStatusIcon = detailPanelStatus?.icon ?? CheckCircle2
+
   if (loading) {
     return <UfpAdminLoadingCenter />
   }
@@ -614,7 +633,7 @@ function CommitteeManagement() {
           </div>
         </motion.div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-4 py-2.5">
             <div className="flex items-center gap-2 min-w-0">
               <EntityIcon className="h-4 w-4 text-slate-500 shrink-0" aria-hidden />
@@ -631,88 +650,207 @@ function CommitteeManagement() {
               {isAcademicCouncil ? 'Add council member' : 'Add member'}
             </button>
           </div>
-          <div className="max-h-[min(70vh,720px)] overflow-y-auto divide-y divide-slate-100">
-            {members.map((member) => {
-              const status = getStatus(member.term_start, member.term_end)
-              const StatusIcon = status.icon
 
-              return (
-                <div
-                  key={member.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-2.5 hover:bg-slate-50/80 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="relative h-11 w-11 shrink-0 rounded-full border border-slate-200 overflow-hidden bg-slate-100">
-                      {member.profile_pic_url ? (
-                        <img
-                          src={member.profile_pic_url}
-                          alt={member.full_name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null
-                            e.target.style.display = 'none'
-                          }}
-                        />
-                      ) : (
-                        <Users className="h-5 w-5 text-slate-400 absolute inset-0 m-auto" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold text-slate-900 truncate">{member.full_name}</h3>
-                        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${status.color}`}>
-                          <StatusIcon className="h-3 w-3" />
-                          {status.label}
-                        </span>
-                      </div>
-                      {member.designation && (
-                        <p className="text-xs text-slate-600 truncate">{member.designation}</p>
-                      )}
-                      {member.status_as_per_act && (
-                        <p className="text-[11px] text-slate-500 truncate italic">{member.status_as_per_act}</p>
-                      )}
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
-                        <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800">
-                          {member.role_in_committee}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar className="h-3 w-3 shrink-0" />
-                          {formatDate(member.term_start)} – {formatDate(member.term_end)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-1 shrink-0 border-t border-slate-100 pt-2 sm:border-0 sm:pt-0 sm:pl-2">
-                    <label
-                      htmlFor={`edit-photo-row-${member.id}`}
-                      className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                      title="Update photo"
-                    >
-                      <Camera className="h-4 w-4" />
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0]
-                        if (file) handleEditPhoto(member.id, file)
-                      }}
-                      className="hidden"
-                      id={`edit-photo-row-${member.id}`}
-                      disabled={uploadingPhoto && editingPhotoFor === member.id}
-                    />
+          <div className="flex flex-col lg:flex-row lg:items-start">
+            <aside className="min-h-0 shrink-0 border-slate-200 lg:w-[42%] lg:border-r xl:w-[45%]">
+              <div className="max-h-[min(70vh,720px)] divide-y divide-slate-100 overflow-y-auto">
+                {members.map((member) => {
+                  const status = getStatus(member.term_start, member.term_end)
+                  const StatusIcon = status.icon
+                  const isSelected = member.id === resolvedMemberId
+
+                  return (
                     <button
+                      key={member.id}
                       type="button"
-                      onClick={() => handleDelete(member.id)}
-                      className="inline-flex items-center justify-center rounded-lg border border-red-100 bg-red-50 p-2 text-red-700 hover:bg-red-100 transition-colors"
-                      title={`Remove ${memberNoun}`}
+                      onClick={() => setSelectedMemberId(member.id)}
+                      aria-selected={isSelected}
+                      className={`flex w-full gap-3 px-3 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                        isSelected
+                          ? 'border-l-4 border-l-blue-600 bg-blue-50 ring-2 ring-inset ring-blue-500/30'
+                          : 'border-l-4 border-l-transparent hover:bg-slate-50/80'
+                      }`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                        {member.profile_pic_url ? (
+                          <img
+                            src={member.profile_pic_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null
+                              e.target.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <Users className="absolute inset-0 m-auto h-5 w-5 text-slate-400" aria-hidden />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`truncate text-sm text-slate-900 ${isSelected ? 'font-bold' : 'font-semibold'}`}
+                          >
+                            {member.full_name}
+                          </span>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${status.color}`}
+                          >
+                            <StatusIcon className="h-3 w-3" aria-hidden />
+                            {status.label}
+                          </span>
+                        </div>
+                        {member.designation ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-600">{member.designation}</p>
+                        ) : null}
+                        {member.role_in_committee ? (
+                          <p className="mt-1 truncate text-[11px] font-medium text-blue-800/90">
+                            <span className="rounded bg-blue-50 px-1.5 py-0.5">{member.role_in_committee}</span>
+                          </p>
+                        ) : null}
+                      </div>
                     </button>
-                  </div>
+                  )
+                })}
+              </div>
+            </aside>
+
+            <section className="min-h-0 min-w-0 flex-1 border-t border-slate-200 p-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:border-t-0 lg:p-6">
+              {!selectedMember ? (
+                <div className="flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">
+                  <Users className="mb-3 h-10 w-10 text-slate-300" aria-hidden />
+                  <p className="text-sm font-medium text-slate-700">Select a member</p>
+                  <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">
+                    Choose someone from the list to view their full record, term dates, and actions.
+                  </p>
                 </div>
-              )
-            })}
+              ) : (
+                <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-5 shadow-sm ring-1 ring-slate-200/50 sm:p-6">
+                  <div className="flex flex-col gap-5 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 gap-4">
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-slate-200">
+                        {selectedMember.profile_pic_url ? (
+                          <img
+                            src={selectedMember.profile_pic_url}
+                            alt={selectedMember.full_name || 'Member'}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null
+                              e.target.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <Users className="absolute inset-0 m-auto h-9 w-9 text-slate-400" aria-hidden />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                          {selectedMember.full_name}
+                        </h3>
+                        <div className="mt-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${detailPanelStatus.color}`}
+                          >
+                            <DetailStatusIcon className="h-3.5 w-3.5" aria-hidden />
+                            {detailPanelStatus.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                      <label
+                        htmlFor={`edit-photo-detail-${selectedMember.id}`}
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                      >
+                        <Camera className="h-4 w-4 text-slate-500" aria-hidden />
+                        {uploadingPhoto && editingPhotoFor === selectedMember.id ? 'Uploading…' : 'Update photo'}
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleEditPhoto(selectedMember.id, file)
+                          e.target.value = ''
+                        }}
+                        className="hidden"
+                        id={`edit-photo-detail-${selectedMember.id}`}
+                        disabled={uploadingPhoto && editingPhotoFor === selectedMember.id}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(selectedMember.id)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  <dl className="mt-5 space-y-4">
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-x-4 sm:gap-y-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Designation</dt>
+                      <dd className="text-sm text-slate-900">
+                        {selectedMember.designation?.trim() || '—'}
+                      </dd>
+                    </div>
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-x-4 sm:gap-y-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Official seat / status as per act
+                      </dt>
+                      <dd className="text-sm leading-relaxed text-slate-900">
+                        {selectedMember.status_as_per_act?.trim() || '—'}
+                      </dd>
+                    </div>
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-x-4 sm:gap-y-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Role in committee
+                      </dt>
+                      <dd className="text-sm text-slate-900">
+                        {selectedMember.role_in_committee?.trim() || '—'}
+                      </dd>
+                    </div>
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:items-center sm:gap-x-4 sm:gap-y-1">
+                      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                        Term start
+                      </dt>
+                      <dd className="text-sm font-medium text-slate-900">
+                        {formatDate(selectedMember.term_start)}
+                      </dd>
+                    </div>
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:items-center sm:gap-x-4 sm:gap-y-1">
+                      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                        Term end
+                      </dt>
+                      <dd className="text-sm font-medium text-slate-900">
+                        {formatDate(selectedMember.term_end)}
+                      </dd>
+                    </div>
+                    <div className="grid gap-1 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-x-4 sm:gap-y-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Term status</dt>
+                      <dd>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${detailPanelStatus.color}`}
+                        >
+                          <DetailStatusIcon className="h-3.5 w-3.5" aria-hidden />
+                          {detailPanelStatus.label}
+                        </span>
+                        <span className="ml-2 text-xs text-slate-500">
+                          {detailPanelStatus.label === 'Current'
+                            ? 'Within term dates.'
+                            : detailPanelStatus.label === 'Expired'
+                              ? 'Term has ended.'
+                              : 'Term has not started yet.'}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
+            </section>
           </div>
         </div>
       )}
