@@ -384,6 +384,11 @@ function CommitteeManagement() {
         details: `Added ${committeeType} member: ${memberName} (${roleInCommittee}).`,
       })
 
+      // Show the new member card immediately without requiring a page reload.
+      if (data) {
+        setMembers((prev) => [data, ...prev])
+      }
+
       showToast('Committee member added successfully!', 'success')
       
       // Clear form
@@ -399,7 +404,11 @@ function CommitteeManagement() {
       const fileInput = document.getElementById('member-photo-upload')
       if (fileInput) fileInput.value = ''
       
-      await fetchMembers()
+      if (committeeId) {
+        await fetchMembers()
+      } else {
+        await fetchMembersByType()
+      }
       setShowForm(false)
     } catch (error) {
       console.error('Error saving committee member:', error)
