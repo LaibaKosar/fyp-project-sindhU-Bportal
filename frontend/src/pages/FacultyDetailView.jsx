@@ -11,12 +11,14 @@ import {
   UserCheck,
   GraduationCap,
   Users,
-  User
+  User,
+  Trash2
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 import AddDepartmentInlineModal from '../components/AddDepartmentInlineModal'
+import UfpGlassFormModal from '../components/UfpGlassFormModal'
 
 function FacultyDetailView() {
   const navigate = useNavigate()
@@ -37,6 +39,9 @@ function FacultyDetailView() {
   const [uploadingLetter, setUploadingLetter] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false)
+  const [showDeleteDepartmentModal, setShowDeleteDepartmentModal] = useState(false)
+  const [deletingDepartment, setDeletingDepartment] = useState(false)
+  const [selectedDepartmentForDelete, setSelectedDepartmentForDelete] = useState(null)
   const [toast, setToast] = useState(null)
   const hodPhotoInputRef = useRef(null)
   const pendingHodDeptIdRef = useRef(null)
@@ -226,6 +231,50 @@ function FacultyDetailView() {
       }
     })
     setDepartmentSummaries(byId)
+  }
+
+  const openDeleteDepartmentModal = (dept, e) => {
+    e.stopPropagation()
+    setSelectedDepartmentForDelete(dept)
+    setShowDeleteDepartmentModal(true)
+  }
+
+  const closeDeleteDepartmentModal = () => {
+    if (deletingDepartment) return
+    setShowDeleteDepartmentModal(false)
+    setSelectedDepartmentForDelete(null)
+  }
+
+  const handleDeleteDepartmentCascade = async () => {
+    if (!selectedDepartmentForDelete?.id || !user?.university_id) return
+    setDeletingDepartment(true)
+    try {
+      const { error: rpcError } = await supabase.rpc('delete_department_cascade', {
+        target_dept_id: selectedDepartmentForDelete.id
+      })
+      if (rpcError) throw new Error(rpcError.message || 'Failed to delete department')
+
+      const { data: stillThere, error: verifyError } = await supabase
+        .from('departments')
+        .select('id')
+        .eq('id', selectedDepartmentForDelete.id)
+        .eq('university_id', user.university_id)
+        .maybeSingle()
+      if (verifyError) throw new Error(verifyError.message || 'Failed to verify deletion')
+      if (stillThere) {
+        throw new Error('Department is still present after delete attempt.')
+      }
+
+      await fetchDepartments()
+      await fetchSummary()
+      closeDeleteDepartmentModal()
+      showToast('Department deleted successfully.')
+    } catch (err) {
+      console.error('Department delete RPC error:', err)
+      showToast(err.message || 'Error deleting department', 'error')
+    } finally {
+      setDeletingDepartment(false)
+    }
   }
 
   const uploadDeanPhoto = async (file) => {
@@ -430,6 +479,14 @@ function FacultyDetailView() {
                       onClick={() => navigate(`/ufp/campus/${campusId}/faculty/${facultyId}/department/${dept.id}`)}
                       className="relative flex w-full cursor-pointer flex-col rounded-xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-4 shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md"
                     >
+                      <button
+                        type="button"
+                        title="Delete department"
+                        onClick={(e) => openDeleteDepartmentModal(dept, e)}
+                        className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-600/90 bg-red-600 text-white shadow-sm transition-colors hover:border-red-700 hover:bg-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                       <div className="flex min-w-0 items-start gap-3 pb-3">
                         <div className="shrink-0">
                           <button
@@ -536,6 +593,48 @@ function FacultyDetailView() {
         }}
         onError={(m) => showToast(m, 'error')}
       />
+
+      <UfpGlassFormModal
+        open={showDeleteDepartmentModal}
+        onClose={closeDeleteDepartmentModal}
+        title="Delete department?"
+        subtitle={selectedDepartmentForDelete?.name || 'This action is permanent.'}
+        maxWidthClass="max-w-lg"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <p className="font-semibold">This action cannot be undone.</p>
+            <p className="mt-1">
+              Deleting this department will also remove linked records under this department, including programs and staff.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={closeDeleteDepartmentModal}
+              disabled={deletingDepartment}
+              className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteDepartmentCascade}
+              disabled={deletingDepartment}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-700 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              {deletingDepartment ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Department'
+              )}
+            </button>
+          </div>
+        </div>
+      </UfpGlassFormModal>
 
       {toast && (
         <motion.div

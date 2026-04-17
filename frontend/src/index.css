@@ -12,4 +12,26 @@
     @apply bg-slate-950 text-white antialiased;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
+
+  /* Ensure form dropdown values/options stay readable on light form surfaces. */
+  input,
+  textarea,
+  select {
+    @apply text-slate-900;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-slate-400;
+  }
+
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply text-slate-500;
+  }
+
+  option {
+    @apply bg-white text-slate-900;
+  }
 }
