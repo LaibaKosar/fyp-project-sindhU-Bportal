@@ -80,6 +80,9 @@ function FacultyManagement() {
   const facultyTableEmblemInputRef = useRef(null)
   const pendingEmblemFacultyIdRef = useRef(null)
   const [emblemUploadingFacultyId, setEmblemUploadingFacultyId] = useState(null)
+  const [showDeleteFacultyModal, setShowDeleteFacultyModal] = useState(false)
+  const [facultyToDelete, setFacultyToDelete] = useState(null)
+  const [deletingFaculty, setDeletingFaculty] = useState(false)
 
   // Form state
   const [emblemFile, setEmblemFile] = useState(null)
@@ -464,17 +467,27 @@ function FacultyManagement() {
     }
   }
 
-  const handleDelete = async (facultyId) => {
-    if (!confirm('Are you sure you want to delete this faculty? This action cannot be undone.')) {
-      return
-    }
+  const openDeleteFacultyModal = (faculty, e) => {
+    e?.stopPropagation()
+    if (deletingFaculty) return
+    setFacultyToDelete(faculty)
+    setShowDeleteFacultyModal(true)
+  }
 
+  const closeDeleteFacultyModal = () => {
+    if (deletingFaculty) return
+    setShowDeleteFacultyModal(false)
+    setFacultyToDelete(null)
+  }
+
+  const handleDelete = async () => {
+    if (!facultyToDelete?.id) return
+    setDeletingFaculty(true)
     try {
-      const facultyToDelete = faculties.find((f) => f.id === facultyId)
       const { error } = await supabase
         .from('faculties')
         .delete()
-        .eq('id', facultyId)
+        .eq('id', facultyToDelete.id)
 
       if (error) {
         throw new Error('Failed to delete faculty: ' + error.message)
@@ -489,9 +502,12 @@ function FacultyManagement() {
       // Refresh faculties list
       await fetchFaculties()
       showToast('Faculty deleted successfully', 'success')
+      closeDeleteFacultyModal()
     } catch (error) {
       console.error('Error deleting faculty:', error)
       showToast(error.message || 'Error deleting faculty', 'error')
+    } finally {
+      setDeletingFaculty(false)
     }
   }
 
@@ -880,8 +896,7 @@ function FacultyManagement() {
                           <button
                             type="button"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(faculty.id)
+                              openDeleteFacultyModal(faculty, e)
                             }}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                             title="Delete faculty"
@@ -944,8 +959,7 @@ function FacultyManagement() {
                 <button
                     type="button"
                   onClick={(e) => {
-                    e.stopPropagation()
-                    handleDelete(faculty.id)
+                    openDeleteFacultyModal(faculty, e)
                   }}
                     className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                   title="Delete faculty"
@@ -1324,6 +1338,63 @@ function FacultyManagement() {
                 )}
               </motion.button>
             </form>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteFacultyModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeDeleteFacultyModal}
+              className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 280 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div className="border-b border-slate-200 px-6 py-4">
+                  <h3 className="text-xl font-semibold text-slate-900">Delete Faculty</h3>
+                  <p className="mt-1 text-sm text-slate-500">Please confirm this action.</p>
+                </div>
+                <div className="px-6 py-5">
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    You are about to permanently delete{' '}
+                    <span className="font-semibold text-slate-900">
+                      {facultyToDelete?.name || 'this faculty'}
+                    </span>
+                    . This cannot be undone.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={closeDeleteFacultyModal}
+                    disabled={deletingFaculty}
+                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deletingFaculty}
+                    className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {deletingFaculty ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {deletingFaculty ? 'Deleting...' : 'Delete Faculty'}
+                  </button>
                 </div>
               </div>
             </motion.div>

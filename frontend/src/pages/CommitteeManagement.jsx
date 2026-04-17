@@ -21,11 +21,49 @@ import Breadcrumbs from '../components/Breadcrumbs'
 import { recordSystemLog } from '../utils/systemLogs'
 
 // Roles in Committee
+const OFFICIAL_SEAT_OPTIONS = [
+  'Vice Chancellor',
+  'Pro Vice Chancellor',
+  'Registrar',
+  'Controller of Examinations',
+  'Treasurer / Director Finance',
+  'Dean',
+  'Director (Institute / Center)',
+  'Chairperson / Head of Department',
+  'Professor (Elected Representative)',
+  'Associate Professor (Elected Representative)',
+  'Assistant Professor (Elected Representative)',
+  'Government Nominee',
+  'Chancellor’s Nominee',
+  'HEC Nominee',
+  'Industry Representative',
+  'External Academic Expert',
+  'Syndicate Nominee',
+  'Senate Member',
+  'Board of Studies Representative',
+  'Academic Council Nominee',
+  'Alumni Representative',
+  'Student Representative',
+  'Co-opted Member',
+  'Observer'
+]
+
 const COMMITTEE_ROLES = [
-  'Chairman',
-  'Secretary',
+  'Chairperson',
+  'Vice Chairperson',
   'Member',
-  'Alumnus Representative'
+  'Secretary',
+  'Joint Secretary',
+  'Convener',
+  'Co-Convener',
+  'Rapporteur',
+  'Coordinator',
+  'Observer',
+  'Invitee',
+  'Guest Member',
+  'External Advisor',
+  'Recording Secretary',
+  'Minute Taker'
 ]
 
 function CommitteeManagement() {
@@ -269,7 +307,7 @@ function CommitteeManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'COMMITTEE_MEMBER_UPDATED',
-        details: `Updated profile photo for ${updatedMember?.member_name || 'committee member'} (${committeeType}).`,
+        details: `Updated profile photo for ${updatedMember?.full_name || 'committee member'} (${committeeType}).`,
       })
 
       showToast('Profile picture updated successfully!', 'success')
@@ -316,7 +354,7 @@ function CommitteeManagement() {
 
       const memberData = {
         university_id: user.university_id,
-        member_name: memberName,
+        full_name: memberName,
         designation: designation || null,
         role_in_committee: roleInCommittee,
         term_start: termStart,
@@ -388,7 +426,7 @@ function CommitteeManagement() {
       await recordSystemLog({
         universityId: user?.university_id,
         actionType: 'COMMITTEE_MEMBER_DELETED',
-        details: `Deleted ${committeeType} member: ${memberToDelete?.member_name || 'Unnamed member'}.`,
+        details: `Deleted ${committeeType} member: ${memberToDelete?.full_name || 'Unnamed member'}.`,
       })
 
       await fetchMembers()
@@ -548,7 +586,7 @@ function CommitteeManagement() {
                     {member.profile_pic_url ? (
                       <img
                         src={member.profile_pic_url}
-                        alt={member.member_name}
+                        alt={member.full_name}
                         className="w-full h-full object-cover rounded-full block"
                         onError={(e) => {
                           e.target.onerror = null
@@ -598,7 +636,7 @@ function CommitteeManagement() {
                 {/* Member Info */}
                 <div className="text-center w-full">
                   <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">
-                    {member.member_name}
+                    {member.full_name}
                   </h3>
                   {member.designation && (
                     <p className="text-sm text-slate-600 mb-2">
@@ -702,13 +740,18 @@ function CommitteeManagement() {
                       <label className="block text-sm font-medium text-slate-900 mb-2">
                         Official Seat / Status As Per Act
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={statusAsPerAct}
                         onChange={(e) => setStatusAsPerAct(e.target.value)}
-                        placeholder="e.g., Nominee of the Commission, The Commissioner Sukkur Division"
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
-                      />
+                      >
+                        <option value="">Select Official Seat / Status</option>
+                        {OFFICIAL_SEAT_OPTIONS.map((seat) => (
+                          <option key={seat} value={seat}>
+                            {seat}
+                          </option>
+                        ))}
+                      </select>
                       <p className="mt-1 text-xs text-slate-500 italic">
                         This field helps the U&B Department verify that the committee composition follows the University Act.
                       </p>
@@ -784,6 +827,9 @@ function CommitteeManagement() {
                           </option>
                         ))}
                       </select>
+                      <p className="mt-1 text-xs text-slate-500 italic">
+                        This field captures the member&apos;s functional responsibility within the committee.
+                      </p>
                     </div>
 
                     {/* Term Dates */}
