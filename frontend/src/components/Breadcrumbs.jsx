@@ -5,13 +5,22 @@ import { ChevronRight } from 'lucide-react'
  * File-explorer style breadcrumbs.
  * @param {Array<{ label: string, path?: string }>} items - Each item: label and optional path (last item usually has no path = current page).
  * @param {string} className - Optional wrapper class (e.g. for light/dark text).
+ * @param {'default' | 'onDark'} [variant] - Use onDark on navy hero backgrounds for readable contrast.
  */
-export default function Breadcrumbs({ items = [], className = '' }) {
+export default function Breadcrumbs({ items = [], className = '', variant = 'default' }) {
   const navigate = useNavigate()
   if (!items?.length) return null
 
+  const variantClass =
+    variant === 'onDark'
+      ? 'text-slate-400 [&_button]:text-slate-300 [&_button]:hover:text-white [&_svg]:text-slate-500'
+      : ''
+
   return (
-    <nav aria-label="Breadcrumb" className={`flex flex-wrap items-center gap-1 text-sm ${className}`}>
+    <nav
+      aria-label="Breadcrumb"
+      className={`flex flex-wrap items-center gap-1 text-sm ${variantClass} ${className}`.trim()}
+    >
       {items.map((item, i) => {
         const isLast = i === items.length - 1
         const isClickable = !isLast && item.path

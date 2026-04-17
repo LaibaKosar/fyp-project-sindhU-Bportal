@@ -7,7 +7,6 @@ import {
   Plus, 
   Loader2,
   X,
-  ArrowLeft,
   Users,
   Gavel,
   Briefcase,
@@ -15,14 +14,17 @@ import {
   CheckCircle2,
   XCircle,
   Camera,
-  Edit2
+  Edit2,
+  Landmark,
 } from 'lucide-react'
-import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { recordSystemLog } from '../utils/systemLogs'
 
 // Roles in Committee
 const OFFICIAL_SEAT_OPTIONS = [
   'Vice Chancellor',
+  'Pro- Chancellor',
   'Pro Vice Chancellor',
   'Registrar',
   'Controller of Examinations',
@@ -47,6 +49,7 @@ const OFFICIAL_SEAT_OPTIONS = [
   'Co-opted Member',
   'Observer'
 ]
+const OTHER_OFFICIAL_SEAT_OPTION = '__OTHER_OFFICIAL_SEAT__'
 
 const COMMITTEE_ROLES = [
   'Chairperson',
@@ -71,9 +74,26 @@ function CommitteeManagement() {
   const location = useLocation()
   
   // Determine committee type from URL path
+  const isAcademicCouncil = location.pathname.includes('academic-council')
   const isSenate = location.pathname.includes('senate')
-  const committeeType = isSenate ? 'Senate' : 'Syndicate'
-  const committeeTitle = isSenate ? 'University Senate' : 'University Syndicate'
+  const committeeType = isAcademicCouncil ? 'Academic Council' : isSenate ? 'Senate' : 'Syndicate'
+  const committeeTitle = isAcademicCouncil
+    ? 'Academic Council'
+    : isSenate
+      ? 'University Senate'
+      : 'University Syndicate'
+  const memberNoun = isAcademicCouncil ? 'council member' : 'committee member'
+  const EntityIcon = isAcademicCouncil ? Landmark : isSenate ? Gavel : Briefcase
+  const emptyStateTitle = isAcademicCouncil
+    ? 'No Academic Council members added yet'
+    : isSenate
+      ? 'No Senate members added yet'
+      : 'No Syndicate members added yet'
+  const emptyStateSubtitle = isAcademicCouncil
+    ? 'Record the statutory composition (seats, roles, terms) so it stays verifiable for U&B and audits.'
+    : isSenate
+      ? 'Add senators and officers to reflect your University Act and current term.'
+      : 'Add syndicate members to reflect executive governance and statutory roles.'
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -85,6 +105,7 @@ function CommitteeManagement() {
   const [showForm, setShowForm] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [editingPhotoFor, setEditingPhotoFor] = useState(null)
+  const [acDuplicateCommittees, setAcDuplicateCommittees] = useState(false)
 
   // Form state
   const [memberName, setMemberName] = useState('')
@@ -93,6 +114,7 @@ function CommitteeManagement() {
   const [termStart, setTermStart] = useState('')
   const [termEnd, setTermEnd] = useState('')
   const [statusAsPerAct, setStatusAsPerAct] = useState('')
+  const [customStatusAsPerAct, setCustomStatusAsPerAct] = useState('')
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
 
@@ -150,7 +172,50 @@ function CommitteeManagement() {
     if (!user?.university_id) return
 
     try {
-      // Fetch committees for this university, matching the type
+      if (committeeType === 'Academic Council') {
+        const { data: rows, error } = await supabase
+          .from('committees')
+          .select('id, name, type, created_at')
+          .eq('university_id', user.university_id)
+          .eq('type', committeeType)
+          .order('created_at', { ascending: true })
+
+        if (error) throw error
+
+        const list = rows || []
+        setAcDuplicateCommittees(list.length > 1)
+
+        if (list.length > 0) {
+          const primary = list[0]
+          setCommitteeId(primary.id)
+          setCommittees([primary])
+        } else {
+          const { data: newCommittee, error: createError } = await supabase
+            .from('committees')
+            .insert({
+              university_id: user.university_id,
+              name: committeeTitle,
+              type: committeeType,
+            })
+            .select()
+            .single()
+
+          if (createError) throw createError
+
+          if (newCommittee) {
+            setCommitteeId(newCommittee.id)
+            setCommittees([newCommittee])
+            await recordSystemLog({
+              universityId: user.university_id,
+              actionType: 'COMMITTEE_ADDED',
+              details: `Created statutory body record: ${committeeTitle}`,
+            })
+          }
+        }
+        return
+      }
+
+      // Senate / Syndicate: single committee per type
       const { data, error } = await supabase
         .from('committees')
         .select('id, name, type')
@@ -159,18 +224,18 @@ function CommitteeManagement() {
         .maybeSingle()
 
       if (error) throw error
+      setAcDuplicateCommittees(false)
 
       if (data) {
         setCommitteeId(data.id)
         setCommittees([data])
       } else {
-        // If committee doesn't exist, create it
         const { data: newCommittee, error: createError } = await supabase
           .from('committees')
           .insert({
             university_id: user.university_id,
             name: committeeTitle,
-            type: committeeType
+            type: committeeType,
           })
           .select()
           .single()
@@ -189,8 +254,6 @@ function CommitteeManagement() {
       }
     } catch (error) {
       console.error('Error fetching/creating committee:', error)
-      // Fallback: try to fetch members directly by type if committees table structure is different
-      // This allows flexibility if the schema uses committee_type directly in committee_members
       fetchMembersByType()
     }
   }
@@ -307,7 +370,7 @@ function CommitteeManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'COMMITTEE_MEMBER_UPDATED',
-        details: `Updated profile photo for ${updatedMember?.full_name || 'committee member'} (${committeeType}).`,
+        details: `Updated profile photo for ${updatedMember?.full_name || memberNoun} (${committeeType}).`,
       })
 
       showToast('Profile picture updated successfully!', 'success')
@@ -343,6 +406,14 @@ function CommitteeManagement() {
       return
     }
 
+    const finalStatusAsPerAct =
+      statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION ? customStatusAsPerAct.trim() : statusAsPerAct
+
+    if (statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION && !finalStatusAsPerAct) {
+      showToast('Please enter official seat / status as per act', 'error')
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -359,7 +430,7 @@ function CommitteeManagement() {
         role_in_committee: roleInCommittee,
         term_start: termStart,
         term_end: termEnd,
-        status_as_per_act: statusAsPerAct || null,
+        status_as_per_act: finalStatusAsPerAct || null,
         profile_pic_url: publicUrl
       }
 
@@ -389,7 +460,10 @@ function CommitteeManagement() {
         setMembers((prev) => [data, ...prev])
       }
 
-      showToast('Committee member added successfully!', 'success')
+      showToast(
+        isAcademicCouncil ? 'Academic Council member added successfully!' : 'Committee member added successfully!',
+        'success'
+      )
       
       // Clear form
       setMemberName('')
@@ -398,6 +472,7 @@ function CommitteeManagement() {
       setTermStart('')
       setTermEnd('')
       setStatusAsPerAct('')
+      setCustomStatusAsPerAct('')
       setProfilePhotoFile(null)
       setProfilePhotoPreview(null)
       
@@ -439,7 +514,10 @@ function CommitteeManagement() {
       })
 
       await fetchMembers()
-      showToast('Committee member deleted successfully', 'success')
+      showToast(
+        isAcademicCouncil ? 'Academic Council member removed' : 'Committee member deleted successfully',
+        'success'
+      )
     } catch (error) {
       console.error('Error deleting committee member:', error)
       showToast(error.message || 'Error deleting committee member', 'error')
@@ -472,207 +550,170 @@ function CommitteeManagement() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl">Loading...</div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
-      >
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
-        >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
+    <UfpAdminShell>
+      <UfpAdminPageWide>
+        <UfpManagementPageHeader
+          breadcrumbItems={[
             { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: committeeTitle }
+            { label: committeeTitle },
           ]}
-          className="text-white/80 mb-2"
+          title={committeeTitle}
+          description={
+            isAcademicCouncil
+              ? 'Maintain the single statutory Academic Council for your university: membership, roles, and terms.'
+              : `Manage members of the ${committeeTitle.toLowerCase()}.`
+          }
+          icon={<EntityIcon className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />}
         />
-
-        {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold text-white mb-2">{committeeTitle}</h2>
-          <p className="text-white/90">
-            Manage members of the {committeeTitle.toLowerCase()}
-          </p>
+      {acDuplicateCommittees && isAcademicCouncil && (
+        <div
+          className="mb-4 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          Multiple Academic Council records were found for this university. The oldest record is used for member
+          management. Consider consolidating data outside the portal if this is unintended.
         </div>
-      </motion.div>
+      )}
 
-      {/* Gallery Grid */}
+      {/* Member list — same shell when empty or populated */}
       {members.length === 0 ? (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-16 border border-slate-100 text-center max-w-2xl mx-auto"
+          transition={{ duration: 0.35 }}
+          className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
         >
-          {isSenate ? (
-            <Gavel className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          ) : (
-            <Briefcase className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          )}
-          <h3 className="text-2xl font-bold text-slate-900 mb-3">No Members Yet</h3>
-          <p className="text-slate-600 mb-8 text-lg">Get started by adding your first committee member.</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg text-lg"
-          >
-            <Plus className="w-6 h-6" />
-            <span>Add First Member</span>
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <EntityIcon className="h-4 w-4 text-slate-500 shrink-0" aria-hidden />
+              <span className="text-sm font-semibold text-slate-800 truncate">Members (0)</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4">
+            <div className="flex min-w-0 gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                <EntityIcon className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">{emptyStateTitle}</p>
+                <p className="mt-1 max-w-lg text-xs leading-relaxed text-slate-600">{emptyStateSubtitle}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Add First Member
+            </button>
+          </div>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
-          {/* Quick Add Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            onClick={() => setShowForm(true)}
-            className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[8px] border-t-blue-600 p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[280px] max-w-[380px] w-full"
-          >
-            <div className="w-20 h-20 rounded-full bg-cyan-100 flex items-center justify-center mb-4">
-              <Plus className="w-10 h-10 text-cyan-600" />
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <EntityIcon className="h-4 w-4 text-slate-500 shrink-0" aria-hidden />
+              <span className="text-sm font-semibold text-slate-800 truncate">
+                Members ({members.length})
+              </span>
             </div>
-            <button className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg">
-              Add Member
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {isAcademicCouncil ? 'Add council member' : 'Add member'}
             </button>
-          </motion.div>
+          </div>
+          <div className="max-h-[min(70vh,720px)] overflow-y-auto divide-y divide-slate-100">
+            {members.map((member) => {
+              const status = getStatus(member.term_start, member.term_end)
+              const StatusIcon = status.icon
 
-          {/* Member Cards */}
-          {members.map((member, index) => {
-            const status = getStatus(member.term_start, member.term_end)
-            const StatusIcon = status.icon
-
-            return (
-              <motion.div
-                key={member.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
-                className="bg-white rounded-3xl shadow-xl shadow-blue-900/10 border-x border-b border-slate-200 border-t-[8px] border-t-blue-600 p-8 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative max-w-[380px] w-full flex flex-col items-center text-center"
-              >
-                {/* Status Badge */}
-                <div className={`absolute top-4 left-4 px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 z-10 ${status.color}`}>
-                  <StatusIcon className="w-3 h-3" />
-                  <span>{status.label}</span>
-                </div>
-
-                {/* Delete Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDelete(member.id)
-                  }}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-900 hover:bg-red-600 hover:scale-110 flex items-center justify-center shadow-md transition-all duration-200 z-10"
-                  title="Delete member"
+              return (
+                <div
+                  key={member.id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-2.5 hover:bg-slate-50/80 transition-colors"
                 >
-                  <Trash2 className="w-[18px] h-[18px] text-white" />
-                </button>
-
-                {/* Member Photo */}
-                <div className="mb-6 relative">
-                  <div className="w-32 h-32 rounded-full border-4 border-slate-200 overflow-hidden bg-white flex items-center justify-center mx-auto shadow-sm relative">
-                    {member.profile_pic_url ? (
-                      <img
-                        src={member.profile_pic_url}
-                        alt={member.full_name}
-                        className="w-full h-full object-cover rounded-full block"
-                        onError={(e) => {
-                          e.target.onerror = null
-                          e.target.src = ''
-                          e.target.classList.add('hidden')
-                          if (e.target.nextSibling) {
-                            e.target.nextSibling.classList.remove('hidden')
-                          }
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-full h-full bg-slate-100 flex items-center justify-center rounded-full ${member.profile_pic_url ? 'hidden absolute inset-0' : ''}`}>
-                      <Users className="w-16 h-16 text-slate-400" />
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="relative h-11 w-11 shrink-0 rounded-full border border-slate-200 overflow-hidden bg-slate-100">
+                      {member.profile_pic_url ? (
+                        <img
+                          src={member.profile_pic_url}
+                          alt={member.full_name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null
+                            e.target.style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <Users className="h-5 w-5 text-slate-400 absolute inset-0 m-auto" />
+                      )}
                     </div>
-                    {/* Edit Photo Button */}
-                    <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all duration-200 flex items-center justify-center group">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files[0]
-                          if (file) {
-                            handleEditPhoto(member.id, file)
-                          }
-                        }}
-                        className="hidden"
-                        id={`edit-photo-${member.id}`}
-                        disabled={uploadingPhoto && editingPhotoFor === member.id}
-                      />
-                      <label
-                        htmlFor={`edit-photo-${member.id}`}
-                        className={`absolute inset-0 flex items-center justify-center cursor-pointer ${
-                          uploadingPhoto && editingPhotoFor === member.id ? 'opacity-50 cursor-wait' : ''
-                        }`}
-                        title="Edit Photo"
-                      >
-                        {uploadingPhoto && editingPhotoFor === member.id ? (
-                          <Loader2 className="w-6 h-6 text-white animate-spin opacity-100" />
-                        ) : (
-                          <Edit2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-                      </label>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">{member.full_name}</h3>
+                        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${status.color}`}>
+                          <StatusIcon className="h-3 w-3" />
+                          {status.label}
+                        </span>
+                      </div>
+                      {member.designation && (
+                        <p className="text-xs text-slate-600 truncate">{member.designation}</p>
+                      )}
+                      {member.status_as_per_act && (
+                        <p className="text-[11px] text-slate-500 truncate italic">{member.status_as_per_act}</p>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800">
+                          {member.role_in_committee}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          {formatDate(member.term_start)} – {formatDate(member.term_end)}
+                        </span>
+                      </div>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-1 shrink-0 border-t border-slate-100 pt-2 sm:border-0 sm:pt-0 sm:pl-2">
+                    <label
+                      htmlFor={`edit-photo-row-${member.id}`}
+                      className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                      title="Update photo"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0]
+                        if (file) handleEditPhoto(member.id, file)
+                      }}
+                      className="hidden"
+                      id={`edit-photo-row-${member.id}`}
+                      disabled={uploadingPhoto && editingPhotoFor === member.id}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(member.id)}
+                      className="inline-flex items-center justify-center rounded-lg border border-red-100 bg-red-50 p-2 text-red-700 hover:bg-red-100 transition-colors"
+                      title={`Remove ${memberNoun}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Member Info */}
-                <div className="text-center w-full">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">
-                    {member.full_name}
-                  </h3>
-                  {member.designation && (
-                    <p className="text-sm text-slate-600 mb-2">
-                      {member.designation}
-                    </p>
-                  )}
-                  {member.status_as_per_act && (
-                    <p className="text-xs text-slate-500 italic mb-2">
-                      {member.status_as_per_act}
-                    </p>
-                  )}
-                  <div className="mb-3">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                      {member.role_in_committee}
-                    </span>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
-                    <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
-                      <Calendar className="w-4 h-4" />
-                      <span className="font-semibold">Term:</span>
-                      <span>{formatDate(member.term_start)} - {formatDate(member.term_end)}</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -702,7 +743,9 @@ function CommitteeManagement() {
                     <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center">
                       <Plus className="w-5 h-5 text-cyan-600" />
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-900">Add Committee Member</h3>
+                    <h3 className="text-xl font-semibold text-slate-900">
+                      {isAcademicCouncil ? 'Add Academic Council member' : 'Add committee member'}
+                    </h3>
                   </div>
                   <button
                     onClick={() => setShowForm(false)}
@@ -718,7 +761,7 @@ function CommitteeManagement() {
                     {/* Member Name */}
                     <div>
                       <label className="block text-sm font-medium text-slate-900 mb-2">
-                        Member Name <span className="text-red-500">*</span>
+                        {isAcademicCouncil ? 'Full name' : 'Member name'} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -751,7 +794,12 @@ function CommitteeManagement() {
                       </label>
                       <select
                         value={statusAsPerAct}
-                        onChange={(e) => setStatusAsPerAct(e.target.value)}
+                        onChange={(e) => {
+                          setStatusAsPerAct(e.target.value)
+                          if (e.target.value !== OTHER_OFFICIAL_SEAT_OPTION) {
+                            setCustomStatusAsPerAct('')
+                          }
+                        }}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                       >
                         <option value="">Select Official Seat / Status</option>
@@ -760,9 +808,21 @@ function CommitteeManagement() {
                             {seat}
                           </option>
                         ))}
+                        <option value={OTHER_OFFICIAL_SEAT_OPTION}>Other (Add your own)</option>
                       </select>
+                      {statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION && (
+                        <input
+                          type="text"
+                          value={customStatusAsPerAct}
+                          onChange={(e) => setCustomStatusAsPerAct(e.target.value)}
+                          placeholder="Enter official seat / status"
+                          className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                        />
+                      )}
                       <p className="mt-1 text-xs text-slate-500 italic">
-                        This field helps the U&B Department verify that the committee composition follows the University Act.
+                        {isAcademicCouncil
+                          ? 'Statutory seat or status under the University Act (used for U&B verification).'
+                          : 'This field helps the U&B Department verify that the committee composition follows the University Act.'}
                       </p>
                     </div>
 
@@ -821,7 +881,8 @@ function CommitteeManagement() {
                     {/* Role in Committee */}
                     <div>
                       <label className="block text-sm font-medium text-slate-900 mb-2">
-                        Role in Committee <span className="text-red-500">*</span>
+                        {isAcademicCouncil ? 'Role in council' : 'Role in committee'}{' '}
+                        <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={roleInCommittee}
@@ -829,7 +890,7 @@ function CommitteeManagement() {
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       >
-                        <option value="">Select Role</option>
+                        <option value="">Select role</option>
                         {COMMITTEE_ROLES.map((role) => (
                           <option key={role} value={role}>
                             {role}
@@ -837,7 +898,9 @@ function CommitteeManagement() {
                         ))}
                       </select>
                       <p className="mt-1 text-xs text-slate-500 italic">
-                        This field captures the member&apos;s functional responsibility within the committee.
+                        {isAcademicCouncil
+                          ? 'Functional responsibility of this person within the Academic Council (e.g. Secretary, Member).'
+                          : "This field captures the member's functional responsibility within the committee."}
                       </p>
                     </div>
 
@@ -889,7 +952,7 @@ function CommitteeManagement() {
                             <span>Saving...</span>
                           </>
                         ) : (
-                          <span>Save Member</span>
+                          <span>{isAcademicCouncil ? 'Save council member' : 'Save member'}</span>
                         )}
                       </button>
                     </div>
@@ -914,7 +977,8 @@ function CommitteeManagement() {
           {toast.message}
         </motion.div>
       )}
-    </div>
+      </UfpAdminPageWide>
+    </UfpAdminShell>
   )
 }
 

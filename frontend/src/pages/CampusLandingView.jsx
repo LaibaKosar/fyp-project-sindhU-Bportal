@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Building2, Loader2, Plus, List } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import {
+  UFP_ADMIN_HERO_SURFACE_CLASS,
+  UFP_ADMIN_HERO_BACK_BUTTON_ROW_CLASS,
+} from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer } from '../components/UfpAdminShell'
 
 function CampusLandingView() {
@@ -116,16 +120,16 @@ function CampusLandingView() {
           initial={{ y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="mb-8 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/15 p-6 shadow-md shadow-blue-900/5 shadow-slate-300/18 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-8"
+          className={`mb-8 ${UFP_ADMIN_HERO_SURFACE_CLASS}`}
         >
           <motion.button
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             type="button"
             onClick={() => navigate(-1)}
-            className="mb-6 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50"
+            className={`group/back mb-6 ${UFP_ADMIN_HERO_BACK_BUTTON_ROW_CLASS}`}
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 transition-transform group-hover/back:-translate-x-0.5" />
             Back
           </motion.button>
           <Breadcrumbs
@@ -133,11 +137,12 @@ function CampusLandingView() {
               { label: 'Dashboard', path: '/ufp-dashboard' },
               { label: campus.name }
             ]}
-            className="mb-2 text-sm text-slate-500"
+            variant="onDark"
+            className="mb-2 text-sm"
           />
           <div>
-            <h2 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">{campus.name}</h2>
-            <div className="flex flex-wrap items-center gap-3 text-slate-600">
+            <h2 className="mb-2 text-3xl font-bold tracking-tight text-white">{campus.name}</h2>
+            <div className="flex flex-wrap items-center gap-3 text-slate-300">
               <span className="text-sm">{campus.city}</span>
               {campus.is_main_campus && (
                 <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
@@ -145,14 +150,13 @@ function CampusLandingView() {
                 </span>
               )}
               {campus.code && (
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-mono text-xs text-slate-700">
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 font-mono text-xs text-slate-200">
                   {campus.code}
                 </span>
               )}
             </div>
           </div>
         </motion.div>
-
         <div className="grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

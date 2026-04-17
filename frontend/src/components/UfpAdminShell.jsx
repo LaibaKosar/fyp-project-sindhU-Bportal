@@ -1,28 +1,42 @@
 import { Loader2 } from 'lucide-react'
 
 /**
- * Soft page backdrop: very light blue at top and bottom, neutral / white center.
- * (Single linear gradient — readable, not dramatic.)
+ * Shared UFP page backdrop: darker slate tint at the top easing to a light neutral floor
+ * (same treatment as Report Archive / Campus Management for visual coherence).
  */
-export const UFP_PAGE_GRADIENT_CLASS =
-  'min-h-screen bg-[linear-gradient(180deg,rgb(239_246_255/0.92)_0%,rgb(255_255_255)_22%,rgb(248_250_252)_50%,rgb(255_255_255)_78%,rgb(239_246_255/0.88)_100%)]'
+export const UFP_PAGE_GRADIENT_CLASS = 'min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc]'
 
 /**
  * Shared UFP admin page chrome — presentation only (no data).
  */
 export function UfpAdminShell({ children, className = '' }) {
   return (
-    <div className={`${UFP_PAGE_GRADIENT_CLASS} ${className}`.trim()}>
+    <div className={`w-full ${UFP_PAGE_GRADIENT_CLASS} ${className}`.trim()}>
       {children}
     </div>
   )
 }
 
+/**
+ * Centered content column (max width) — faculty/campus list pages.
+ */
 export function UfpAdminContainer({ children, className = '' }) {
   return (
     <div
-      className={`w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10 ${className}`.trim()}
+      className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10 ${className}`.trim()}
     >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Full-width dashboard body (Report Archive / Campus Management style): left-aligned content,
+ * horizontal padding only — no page-level max-width or mx-auto column.
+ */
+export function UfpAdminPageWide({ children, className = '' }) {
+  return (
+    <div className={`w-full px-6 py-6 sm:py-8 lg:px-8 lg:pb-10 ${className}`.trim()}>
       {children}
     </div>
   )

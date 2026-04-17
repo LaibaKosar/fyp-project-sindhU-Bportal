@@ -10,6 +10,11 @@ import {
   MapPin
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import {
+  UFP_ADMIN_HERO_SURFACE_CLASS,
+  UFP_ADMIN_HERO_BACK_BUTTON_CLASS,
+  UFP_ADMIN_HERO_ICON_WRAP_CLASS,
+} from '../components/UfpManagementPageHeader'
 import DirectoryRow from '../components/DirectoryRow'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 
@@ -456,59 +461,56 @@ function CampusDetailView() {
   return (
     <UfpAdminShell>
       <UfpAdminContainer>
-      <motion.div
-        initial={{ y: -12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="mb-6 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6"
-      >
-        <motion.button
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
+        <motion.div
+          initial={{ y: -12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
+          className={`mb-6 ${UFP_ADMIN_HERO_SURFACE_CLASS}`}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
-            { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: campus.name, path: `/ufp/campus/${id}` },
-            { label: 'Faculties' }
-          ]}
-          className="mb-2 text-sm text-slate-500"
-        />
-
-        <div className="flex items-start gap-4">
-          <div
-            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
-            aria-hidden
+          <motion.button
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            type="button"
+            onClick={() => navigate(-1)}
+            className={`group/back ${UFP_ADMIN_HERO_BACK_BUTTON_CLASS}`}
           >
-            <MapPin className="h-5 w-5" strokeWidth={2} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{campus.name}</h2>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 sm:gap-3">
-              <span>{campus.city}</span>
-              {campus.is_main_campus && (
-                <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
-                  Main Campus
-                </span>
-              )}
-              {campus.code && (
-                <span className="rounded-full bg-slate-100 px-3 py-0.5 font-mono text-xs font-medium text-slate-700">
-                  {campus.code}
-                </span>
-              )}
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover/back:-translate-x-0.5" />
+            Back
+          </motion.button>
+
+          <Breadcrumbs
+            items={[
+              { label: 'Dashboard', path: '/ufp-dashboard' },
+              { label: campus.name, path: `/ufp/campus/${id}` },
+              { label: 'Faculties' }
+            ]}
+            variant="onDark"
+            className="mb-2 text-sm"
+          />
+
+          <div className="flex items-start gap-4">
+            <div className={UFP_ADMIN_HERO_ICON_WRAP_CLASS} aria-hidden>
+              <MapPin className="h-5 w-5" strokeWidth={2} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="mb-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">{campus.name}</h2>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300 sm:gap-3">
+                <span>{campus.city}</span>
+                {campus.is_main_campus && (
+                  <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
+                    Main Campus
+                  </span>
+                )}
+                {campus.code && (
+                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-0.5 font-mono text-xs font-medium text-slate-200">
+                    {campus.code}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </motion.div>
-
+        </motion.div>
       {/* Faculty Directory ladder view */}
       <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/40 to-blue-50/35 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/18 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

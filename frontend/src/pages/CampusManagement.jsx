@@ -9,14 +9,14 @@ import {
   CheckCircle,
   X,
   Building2,
-  ArrowLeft,
   MapPin,
   Search,
   Camera,
   Upload,
   Edit2
 } from 'lucide-react'
-import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
+import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 
 const CITIES = [
@@ -447,48 +447,24 @@ function CampusManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
+      <div className={`${UFP_PAGE_GRADIENT_CLASS} flex items-center justify-center`}>
         <div className="text-cyan-600 text-xl">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
-      >
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
-        >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
-            { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: 'Campus Management' }
-          ]}
-          variant="onDark"
-          className="mb-2"
-        />
-
-        {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold text-white mb-2">Campus Management</h2>
-          <p className="text-white/90">Manage your university's campuses and locations</p>
-        </div>
-      </motion.div>
+    <div className={`${UFP_PAGE_GRADIENT_CLASS} p-8`}>
+      <UfpManagementPageHeader
+        className="mb-8"
+        breadcrumbItems={[
+          { label: 'Dashboard', path: '/ufp-dashboard' },
+          { label: 'Campus Management' },
+        ]}
+        title="Campus Management"
+        description="Manage your university's campuses and locations"
+        icon={<Building2 className="h-5 w-5" strokeWidth={2} />}
+      />
 
       {/* Gallery Grid */}
       {campuses.length === 0 ? (

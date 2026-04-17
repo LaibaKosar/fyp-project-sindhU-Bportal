@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Upload, X, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react'
 import { recordSystemLog } from '../utils/systemLogs'
+import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 
 function UFPSetupWizard() {
   const navigate = useNavigate()
@@ -278,14 +279,14 @@ function UFPSetupWizard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 to-emerald-100/50 flex items-center justify-center">
-        <div className="text-emerald-600 text-xl">Loading...</div>
+      <div className={`${UFP_PAGE_GRADIENT_CLASS} flex items-center justify-center`}>
+        <div className="text-slate-600 text-xl">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 to-emerald-100/50 py-12 px-4">
+    <div className={`${UFP_PAGE_GRADIENT_CLASS} py-12 px-4`}>
       <div className="max-w-5xl mx-auto">
         {/* Cancel & Logout Link */}
         <div className="flex justify-end mb-4">

@@ -7,7 +7,6 @@ import {
   Plus, 
   Loader2,
   X,
-  ArrowLeft,
   FileText,
   Download,
   Search,
@@ -15,7 +14,8 @@ import {
   FileCheck,
   Upload
 } from 'lucide-react'
-import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
+import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 
 // Report Types
@@ -336,58 +336,25 @@ function ReportArchive() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
+      <div className={`${UFP_PAGE_GRADIENT_CLASS} flex items-center justify-center`}>
         <div className="text-cyan-600 text-xl">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
-      >
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
-        >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
-            { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: 'Report Archive' }
-          ]}
-          className="text-white/80 mb-2"
-        />
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Report Archive</h2>
-            <p className="text-white/90">
-              Official government audit reports and documentation
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add Report</span>
-          </button>
-        </div>
-      </motion.div>
+    <div className={`${UFP_PAGE_GRADIENT_CLASS} p-8`}>
+      <UfpManagementPageHeader
+        className="mb-8"
+        breadcrumbItems={[
+          { label: 'Dashboard', path: '/ufp-dashboard' },
+          { label: 'Report Archive' },
+        ]}
+        title="Report Archive"
+        description="Official government audit reports and documentation"
+        icon={<FileText className="h-5 w-5" strokeWidth={2} />}
+        primaryAction={{ label: 'Add Report', onClick: () => setShowForm(true) }}
+      />
 
       {/* Search and Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-slate-200">

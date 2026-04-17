@@ -10,7 +10,6 @@ import {
   CheckCircle,
   X,
   Building2,
-  ArrowLeft,
   Users,
   ArrowRight,
   BookOpen,
@@ -19,7 +18,7 @@ import {
   Info,
   ChevronRight,
 } from 'lucide-react'
-import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 
@@ -408,6 +407,19 @@ function FacultyManagement() {
         dean_appointment_letter_url: deanLetterUrl || null
       }
 
+      // Link official dean_id when a teaching staff row already uses the same email (helps Board of Faculty flows).
+      if (email?.trim()) {
+        const { data: staffRows, error: staffLookupErr } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('university_id', user.university_id)
+          .ilike('email', email.trim())
+          .limit(1)
+        if (!staffLookupErr && staffRows?.length === 1) {
+          insertData.dean_id = staffRows[0].id
+        }
+      }
+
       // If campusId is present in URL, include it in the insert
       if (campusId) {
         insertData.campus_id = campusId
@@ -579,52 +591,20 @@ function FacultyManagement() {
   return (
     <UfpAdminShell>
       <UfpAdminContainer>
-      <motion.div
-        initial={{ y: -12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="mb-10 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:mb-12 sm:p-6"
-      >
-        <motion.button
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
+        <UfpManagementPageHeader
+          className="sm:mb-12"
+          breadcrumbItems={[
             { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: campusName ? `Faculties - ${campusName}` : 'Faculty Management' }
+            { label: campusName ? `Faculties - ${campusName}` : 'Faculty Management' },
           ]}
-          className="mb-2 text-sm text-slate-500"
-        />
-
-        <div className="flex items-start gap-4">
-          <div
-            className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
-            aria-hidden
-          >
-            <Building2 className="h-5 w-5" strokeWidth={2} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            {campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
-          </h2>
-            <p className="text-sm text-slate-600 sm:text-base">
-            {campusName 
+          title={campusName ? `Faculties - ${campusName}` : 'Faculty Management'}
+          description={
+            campusName
               ? `Manage faculties for ${campusName}`
-                : "Manage your university's faculties and departments"}
-          </p>
-          </div>
-        </div>
-      </motion.div>
-
+              : "Manage your university's faculties and departments"
+          }
+          icon={<Building2 className="h-5 w-5" strokeWidth={2} />}
+        />
       {/* Faculty list: table (lg+), stacked cards (mobile) */}
       {faculties.length === 0 ? (
         <motion.div

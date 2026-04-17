@@ -15,6 +15,11 @@ import {
   Trash2
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import {
+  UFP_ADMIN_HERO_SURFACE_CLASS,
+  UFP_ADMIN_HERO_BACK_BUTTON_CLASS,
+  UFP_ADMIN_HERO_ICON_WRAP_CLASS,
+} from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 import AddDepartmentInlineModal from '../components/AddDepartmentInlineModal'
@@ -374,80 +379,77 @@ function FacultyDetailView() {
   return (
     <UfpAdminShell>
       <UfpAdminContainer>
-        <div className="min-w-0">
-          <motion.div
-            initial={{ y: -12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="mb-10 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:mb-12 sm:p-6"
-          >
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0 flex-1">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-                <Breadcrumbs
-                  items={[
-                    { label: 'Dashboard', path: '/ufp-dashboard' },
-                    { label: campus.name, path: `/ufp/campus/${campusId}` },
-                    { label: 'Faculties', path: `/ufp/campus/${campusId}/faculties` },
-                    { label: faculty.name }
-                  ]}
-                  className="mb-2 text-sm text-slate-500"
-                />
-                <div className="flex items-start gap-3">
-                  <div
-                    className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
-                    aria-hidden
-                  >
-                    <Building2 className="h-5 w-5" strokeWidth={2} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="mb-2 text-2xl font-bold leading-tight tracking-tight text-slate-900 lg:text-3xl">
-                      {faculty.name}
-                    </h2>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs font-medium text-slate-700">
-                        {faculty.code}
-                      </span>
-                    </div>
+        <motion.div
+          initial={{ y: -12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className={`mb-10 sm:mb-12 ${UFP_ADMIN_HERO_SURFACE_CLASS}`}
+        >
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className={`group/back ${UFP_ADMIN_HERO_BACK_BUTTON_CLASS}`}
+              >
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover/back:-translate-x-0.5" />
+                Back
+              </button>
+              <Breadcrumbs
+                items={[
+                  { label: 'Dashboard', path: '/ufp-dashboard' },
+                  { label: campus.name, path: `/ufp/campus/${campusId}` },
+                  { label: 'Faculties', path: `/ufp/campus/${campusId}/faculties` },
+                  { label: faculty.name }
+                ]}
+                variant="onDark"
+                className="mb-2 text-sm"
+              />
+              <div className="flex items-start gap-3">
+                <div className={UFP_ADMIN_HERO_ICON_WRAP_CLASS} aria-hidden>
+                  <Building2 className="h-5 w-5" strokeWidth={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="mb-2 text-2xl font-bold leading-tight tracking-tight text-white lg:text-3xl">
+                    {faculty.name}
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-md border border-white/20 bg-white/10 px-2.5 py-1 font-mono text-xs font-medium text-slate-200">
+                      {faculty.code}
+                    </span>
                   </div>
                 </div>
               </div>
-
-              <div className="w-full shrink-0 lg:max-w-md lg:w-[400px]">
-                <UfpLeadershipPanel
-                  roleLabel="Dean / Focal Person"
-                  displayName={faculty.dean_name}
-                  emptyDisplayLabel="No dean set"
-                  photoUrl={faculty.dean_photo_url}
-                  photoAlt={faculty.dean_name || 'Dean'}
-                  photoInputId="dean-photo-upload-faculty"
-                  letterInputId="dean-letter-upload-faculty"
-                  letterUrl={faculty.dean_appointment_letter_url}
-                  uploadError={uploadError}
-                  uploadingPhoto={uploadingPhoto}
-                  uploadingLetter={uploadingLetter}
-                  onPhotoChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) uploadDeanPhoto(f)
-                    e.target.value = ''
-                  }}
-                  onLetterChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) uploadDeanLetter(f)
-                    e.target.value = ''
-                  }}
-                  showOfficialRecordBadge
-                />
-              </div>
             </div>
-          </motion.div>
 
+            <div className="w-full shrink-0 lg:max-w-md lg:w-[400px]">
+              <UfpLeadershipPanel
+                roleLabel="Dean / Focal Person"
+                displayName={faculty.dean_name}
+                emptyDisplayLabel="No dean set"
+                photoUrl={faculty.dean_photo_url}
+                photoAlt={faculty.dean_name || 'Dean'}
+                photoInputId="dean-photo-upload-faculty"
+                letterInputId="dean-letter-upload-faculty"
+                letterUrl={faculty.dean_appointment_letter_url}
+                uploadError={uploadError}
+                uploadingPhoto={uploadingPhoto}
+                uploadingLetter={uploadingLetter}
+                onPhotoChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadDeanPhoto(f)
+                  e.target.value = ''
+                }}
+                onLetterChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadDeanLetter(f)
+                  e.target.value = ''
+                }}
+                showOfficialRecordBadge
+              />
+            </div>
+          </div>
+        </motion.div>
+        <div className="min-w-0">
           <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/95 via-white to-blue-50/40 shadow-sm shadow-blue-900/[0.04] ring-1 ring-blue-950/[0.04] ring-slate-200/45">
             <div className="border-b border-blue-300/70 bg-gradient-to-r from-blue-100/85 via-blue-50/70 to-indigo-100/35 px-4 py-3.5 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

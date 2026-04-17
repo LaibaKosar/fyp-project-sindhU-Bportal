@@ -18,6 +18,11 @@ import {
   Briefcase
 } from 'lucide-react'
 import Breadcrumbs from '../components/Breadcrumbs'
+import {
+  UFP_ADMIN_HERO_SURFACE_CLASS,
+  UFP_ADMIN_HERO_BACK_BUTTON_CLASS,
+  UFP_ADMIN_HERO_ICON_WRAP_CLASS,
+} from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import UfpLeadershipPanel from '../components/UfpLeadershipPanel'
 import AddProgramInlineModal from '../components/AddProgramInlineModal'
@@ -606,16 +611,16 @@ function DepartmentDetailView() {
         <motion.div
           initial={{ y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="mb-10 rounded-xl border border-slate-200/90 border-t-[3px] border-t-blue-600 bg-gradient-to-br from-white via-blue-50/25 to-blue-50/20 p-5 shadow-md shadow-blue-900/5 shadow-slate-300/20 ring-1 ring-blue-950/[0.05] ring-slate-200/45 sm:mb-12 sm:p-6"
+          className={`mb-10 sm:mb-12 ${UFP_ADMIN_HERO_SURFACE_CLASS}`}
         >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
             <div className="min-w-0 flex-1">
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 hover:text-blue-900"
+                className={`group/back ${UFP_ADMIN_HERO_BACK_BUTTON_CLASS}`}
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover/back:-translate-x-0.5" />
                 Back
               </button>
               <Breadcrumbs
@@ -626,19 +631,17 @@ function DepartmentDetailView() {
                   { label: faculty.name, path: `/ufp/campus/${campusId}/faculty/${facultyId}` },
                   { label: department.name }
                 ]}
-                className="mb-2 text-sm text-slate-500"
+                variant="onDark"
+                className="mb-2 text-sm"
               />
               <div className="flex items-start gap-3">
-                <div
-                  className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/22 to-blue-700/12 text-blue-700 shadow-sm ring-1 ring-blue-300/55"
-                  aria-hidden
-                >
+                <div className={UFP_ADMIN_HERO_ICON_WRAP_CLASS} aria-hidden>
                   <Building2 className="h-5 w-5" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="mb-1 text-2xl font-bold tracking-tight text-slate-900">{department.name}</h2>
+                  <h2 className="mb-1 text-2xl font-bold tracking-tight text-white">{department.name}</h2>
                   {department.code && (
-                    <span className="font-mono text-xs text-slate-600">{department.code}</span>
+                    <span className="font-mono text-xs text-slate-300">{department.code}</span>
                   )}
                 </div>
               </div>
@@ -668,14 +671,13 @@ function DepartmentDetailView() {
                   e.target.value = ''
                 }}
                 photoChangeOverlay
-                trailingSlot={<FileText className="h-4 w-4 shrink-0 text-blue-600/70" aria-hidden />}
+                trailingSlot={<FileText className="h-4 w-4 shrink-0 text-cyan-200/80" aria-hidden />}
                 letterIdleLabel="No letter uploaded — click to upload"
                 letterUploadingLabel="Uploading..."
               />
             </div>
           </div>
         </motion.div>
-
         <div className="min-w-0">
 
           <section className="mb-12 overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/95 via-white to-violet-50/45 shadow-sm shadow-violet-900/[0.05] ring-1 ring-violet-950/[0.06] ring-slate-200/45">

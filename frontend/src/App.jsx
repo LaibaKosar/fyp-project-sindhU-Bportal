@@ -212,6 +212,7 @@ function AppContent() {
         <Route path="/ufp/students" element={<ProtectedRoute requiredRole="UFP"><StudentEnrollment /></ProtectedRoute>} />
         <Route path="/ufp/senate" element={<ProtectedRoute requiredRole="UFP"><CommitteeManagement /></ProtectedRoute>} />
         <Route path="/ufp/syndicate" element={<ProtectedRoute requiredRole="UFP"><CommitteeManagement /></ProtectedRoute>} />
+        <Route path="/ufp/academic-council" element={<ProtectedRoute requiredRole="UFP"><CommitteeManagement /></ProtectedRoute>} />
         <Route path="/ufp/meetings" element={<ProtectedRoute requiredRole="UFP"><MeetingManagement /></ProtectedRoute>} />
         <Route path="/ufp/reports" element={<ProtectedRoute requiredRole="UFP"><ReportArchive /></ProtectedRoute>} />
         <Route path="/ufp/boards" element={<ProtectedRoute requiredRole="UFP"><BoardManagement /></ProtectedRoute>} />

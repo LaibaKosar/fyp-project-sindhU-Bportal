@@ -7,21 +7,21 @@ import {
   Plus, 
   Loader2,
   X,
-  ArrowLeft,
   Users,
   Building2,
+  BookOpen,
   Globe,
   Search,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   Calendar,
-  Clock,
   Edit2,
   Crown,
-  User
+  LayoutList,
 } from 'lucide-react'
-import Breadcrumbs from '../components/Breadcrumbs'
+import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
+import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { recordSystemLog } from '../utils/systemLogs'
 
 // Board Levels
@@ -38,6 +38,33 @@ const BOARD_TYPES = {
   DEPARTMENT: 'Board of Studies'
 }
 
+/** Tabs shown in Boards UI (Academic Council is managed under Governance → Academic Council). */
+const BOARD_MAIN_TABS = [BOARD_LEVELS.FACULTY, BOARD_LEVELS.DEPARTMENT]
+
+/** Visual system: Faculty = indigo, Studies = emerald (distinct at a glance). */
+const BOARD_TAB_THEME = {
+  [BOARD_LEVELS.FACULTY]: {
+    tabActive: 'bg-indigo-700 text-white shadow-md ring-1 ring-indigo-950/10',
+    tabInactive: 'border border-indigo-100 bg-white text-indigo-950 hover:bg-indigo-50/90',
+    shell: 'border-indigo-200/90 shadow-md shadow-indigo-950/[0.04] ring-1 ring-indigo-950/[0.06]',
+    summary: 'border-b border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-slate-50/80',
+    summaryIcon: 'bg-indigo-100 text-indigo-700',
+    thead: 'bg-indigo-50/90 text-indigo-900/80',
+    row: 'border-l-[4px] border-l-indigo-500 hover:bg-indigo-50/35',
+    searchFocus: 'focus:border-indigo-500 focus:ring-indigo-500/20',
+  },
+  [BOARD_LEVELS.DEPARTMENT]: {
+    tabActive: 'bg-emerald-700 text-white shadow-md ring-1 ring-emerald-950/10',
+    tabInactive: 'border border-emerald-100 bg-white text-emerald-950 hover:bg-emerald-50/90',
+    shell: 'border-emerald-200/90 shadow-md shadow-emerald-950/[0.04] ring-1 ring-emerald-950/[0.06]',
+    summary: 'border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-slate-50/80',
+    summaryIcon: 'bg-emerald-100 text-emerald-700',
+    thead: 'bg-emerald-50/90 text-emerald-900/80',
+    row: 'border-l-[4px] border-l-emerald-600 hover:bg-emerald-50/35',
+    searchFocus: 'focus:border-emerald-500 focus:ring-emerald-500/20',
+  },
+}
+
 // Meeting Frequencies
 const MEETING_FREQUENCIES = [
   'Quarterly',
@@ -52,6 +79,13 @@ const MEMBER_ROLES = [
   'Member',
   'External Expert'
 ]
+const OTHER_BOARD_MEMBER_ROLE = '__OTHER_BOARD_MEMBER_ROLE__'
+
+function facultyRelationFromBoard(board) {
+  const f = board?.faculties
+  if (!f) return null
+  return Array.isArray(f) ? f[0] || null : f
+}
 
 function BoardManagement() {
   const navigate = useNavigate()
@@ -63,14 +97,12 @@ function BoardManagement() {
   const [filteredBoards, setFilteredBoards] = useState([])
   const [faculties, setFaculties] = useState([])
   const [departments, setDepartments] = useState([])
-  const [deans, setDeans] = useState([])
   const [toast, setToast] = useState(null)
-  const [deanNotFoundWarning, setDeanNotFoundWarning] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [selectedBoard, setSelectedBoard] = useState(null)
   const [boardMembers, setBoardMembers] = useState([])
-  const [activeTab, setActiveTab] = useState(BOARD_LEVELS.UNIVERSITY)
+  const [activeTab, setActiveTab] = useState(BOARD_LEVELS.FACULTY)
   const [editingBoard, setEditingBoard] = useState(null)
 
   // Form state
@@ -80,18 +112,23 @@ function BoardManagement() {
   const [meetingFrequency, setMeetingFrequency] = useState('')
   const [facultyId, setFacultyId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
-  const [deanId, setDeanId] = useState('')
-
   // Member form state
   const [memberName, setMemberName] = useState('')
   const [memberDesignation, setMemberDesignation] = useState('')
   const [memberRole, setMemberRole] = useState('')
+  const [customMemberRole, setCustomMemberRole] = useState('')
   const [memberType, setMemberType] = useState('Internal')
   const [memberAffiliation, setMemberAffiliation] = useState('')
   const [memberStatusAsPerAct, setMemberStatusAsPerAct] = useState('')
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('')
+
+  const selectedFacultyForm = facultyId
+    ? faculties.find((f) => String(f.id) === String(facultyId))
+    : null
+  const selectedFacultyDeanName = (selectedFacultyForm?.dean_name || '').trim()
+  const selectedFacultyDeanEmail = (selectedFacultyForm?.dean_email || '').trim()
 
   useEffect(() => {
     loadUserData()
@@ -105,9 +142,6 @@ function BoardManagement() {
       }
       if (activeTab === BOARD_LEVELS.DEPARTMENT && facultyId) {
         fetchDepartments()
-      }
-      if (activeTab === BOARD_LEVELS.FACULTY) {
-        fetchDeans()
       }
     }
   }, [user, activeTab, facultyId])
@@ -162,13 +196,12 @@ function BoardManagement() {
     try {
       let query = supabase
         .from('university_boards')
-        .select('*, staff:dean_id(full_name, academic_designation, administrative_role)')
+        .select(
+          '*, staff:dean_id(full_name, academic_designation, administrative_role), faculties(dean_name, dean_email, name)'
+        )
         .eq('university_id', user.university_id)
 
-      // Filter by board level
-      if (activeTab === BOARD_LEVELS.UNIVERSITY) {
-        query = query.eq('board_type', BOARD_TYPES.UNIVERSITY)
-      } else if (activeTab === BOARD_LEVELS.FACULTY) {
+      if (activeTab === BOARD_LEVELS.FACULTY) {
         query = query.eq('board_type', BOARD_TYPES.FACULTY)
       } else if (activeTab === BOARD_LEVELS.DEPARTMENT) {
         query = query.eq('board_type', BOARD_TYPES.DEPARTMENT)
@@ -190,7 +223,7 @@ function BoardManagement() {
     try {
       const { data, error } = await supabase
         .from('faculties')
-        .select('id, name, dean_id')
+        .select('id, name, dean_id, dean_name, dean_email')
         .eq('university_id', user.university_id)
         .order('name', { ascending: true })
 
@@ -216,26 +249,6 @@ function BoardManagement() {
       setDepartments(data || [])
     } catch (error) {
       console.error('Error fetching departments:', error)
-    }
-  }
-
-  const fetchDeans = async () => {
-    if (!user?.university_id) return
-
-    try {
-      // Fetch staff who are Deans or Professors
-      const { data, error } = await supabase
-        .from('staff')
-        .select('id, full_name, academic_designation, administrative_role')
-        .eq('university_id', user.university_id)
-        .eq('type', 'Teaching')
-        .or('administrative_role.eq.Dean,academic_designation.eq.Professor')
-        .order('full_name', { ascending: true })
-
-      if (error) throw error
-      setDeans(data || [])
-    } catch (error) {
-      console.error('Error fetching deans:', error)
     }
   }
 
@@ -293,10 +306,16 @@ function BoardManagement() {
       return
     }
 
-    // Dean is required only when creating a new Faculty board, not when editing
-    if (activeTab === BOARD_LEVELS.FACULTY && !deanId && !editingBoard) {
-      showToast('Please select a Dean (Chairperson)', 'error')
+    if (activeTab === BOARD_LEVELS.FACULTY) {
+      const selFac = faculties.find((x) => String(x.id) === String(facultyId))
+      const dn = (selFac?.dean_name || '').trim()
+      if (!dn) {
+        showToast(
+          'This faculty has no dean name on file. Set dean name on the faculty record before creating or updating this board.',
+          'error'
+        )
       return
+      }
     }
 
     if (activeTab === BOARD_LEVELS.DEPARTMENT && !departmentId) {
@@ -310,17 +329,16 @@ function BoardManagement() {
       const boardData = {
         university_id: user.university_id,
         name: boardName,
-        board_type: activeTab === BOARD_LEVELS.UNIVERSITY ? BOARD_TYPES.UNIVERSITY :
-                   activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY :
-                   BOARD_TYPES.DEPARTMENT,
+        board_type: activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY : BOARD_TYPES.DEPARTMENT,
         term_start: termStart,
         term_end: termEnd,
         meeting_frequency: meetingFrequency
       }
 
       if (activeTab === BOARD_LEVELS.FACULTY) {
+        const selFac = faculties.find((x) => String(x.id) === String(facultyId))
         boardData.faculty_id = facultyId
-        boardData.dean_id = deanId
+        boardData.dean_id = selFac?.dean_id ?? null
       }
 
       if (activeTab === BOARD_LEVELS.DEPARTMENT) {
@@ -370,9 +388,7 @@ function BoardManagement() {
       setMeetingFrequency('')
       setFacultyId('')
       setDepartmentId('')
-      setDeanId('')
       setEditingBoard(null)
-      setDeanNotFoundWarning(false)
       
       await fetchBoards()
       setShowForm(false)
@@ -397,6 +413,14 @@ function BoardManagement() {
       return
     }
 
+    const finalMemberRole =
+      memberRole === OTHER_BOARD_MEMBER_ROLE ? customMemberRole.trim() : memberRole
+
+    if (memberRole === OTHER_BOARD_MEMBER_ROLE && !finalMemberRole) {
+      showToast('Please enter a role when using Other', 'error')
+      return
+    }
+
     if (memberType === 'External' && !memberAffiliation) {
       showToast('Please provide affiliation for external members', 'error')
       return
@@ -409,7 +433,7 @@ function BoardManagement() {
         board_id: selectedBoard.id,
         full_name: memberName,
         designation: memberDesignation || null,
-        role: memberRole,
+        role: finalMemberRole,
         member_type: memberType,
         affiliation: memberType === 'External' ? memberAffiliation : null,
         status_as_per_act: memberStatusAsPerAct || null
@@ -424,7 +448,7 @@ function BoardManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'BOARD_MEMBER_ADDED',
-        details: `Added board member: ${memberName} (${memberRole}) in ${selectedBoard?.name || 'board'}.`,
+        details: `Added board member: ${memberName} (${finalMemberRole}) in ${selectedBoard?.name || 'board'}.`,
       })
 
       showToast('Member added successfully!', 'success')
@@ -433,6 +457,7 @@ function BoardManagement() {
       setMemberName('')
       setMemberDesignation('')
       setMemberRole('')
+      setCustomMemberRole('')
       setMemberType('Internal')
       setMemberAffiliation('')
       setMemberStatusAsPerAct('')
@@ -454,46 +479,15 @@ function BoardManagement() {
     setMeetingFrequency(board.meeting_frequency)
     setFacultyId(board.faculty_id || '')
     setDepartmentId(board.department_id || '')
-    setDeanId(board.dean_id || '')
-    setDeanNotFoundWarning(false)
     
-    // Set the active tab to match the board type
     if (board.board_type === BOARD_TYPES.UNIVERSITY) {
-      setActiveTab(BOARD_LEVELS.UNIVERSITY)
-    } else if (board.board_type === BOARD_TYPES.FACULTY) {
+      showToast('Academic Council records are managed in Governance → Academic Council.', 'success')
+      return
+    }
+    if (board.board_type === BOARD_TYPES.FACULTY) {
       setActiveTab(BOARD_LEVELS.FACULTY)
       if (board.faculty_id) {
         await fetchFaculties()
-        await fetchDeans()
-        
-        // Auto-lookup dean_id from faculty record
-        try {
-          const { data: facultyData, error: facultyError } = await supabase
-            .from('faculties')
-            .select('dean_id')
-            .eq('id', board.faculty_id)
-            .single()
-          
-          if (!facultyError && facultyData?.dean_id) {
-            // Check if this dean exists in staff table
-            const { data: staffData, error: staffError } = await supabase
-              .from('staff')
-              .select('id, full_name')
-              .eq('id', facultyData.dean_id)
-              .single()
-            
-            if (!staffError && staffData) {
-              // Dean found in staff table, set it
-              setDeanId(facultyData.dean_id)
-            } else {
-              // Dean ID exists in faculty but not found in staff table
-              setDeanNotFoundWarning(true)
-              setDeanId('')
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching faculty dean:', error)
-        }
       }
     } else if (board.board_type === BOARD_TYPES.DEPARTMENT) {
       setActiveTab(BOARD_LEVELS.DEPARTMENT)
@@ -573,6 +567,8 @@ function BoardManagement() {
 
   const handleManageMembers = (board) => {
     setSelectedBoard(board)
+    setMemberRole('')
+    setCustomMemberRole('')
     setShowMemberModal(true)
   }
 
@@ -620,196 +616,334 @@ function BoardManagement() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] flex items-center justify-center">
-        <div className="text-cyan-600 text-xl">Loading...</div>
-      </div>
-    )
+    return <UfpAdminLoadingCenter />
   }
 
   const compliance = selectedBoard ? checkCompliance(selectedBoard) : null
+  const tabTheme = BOARD_TAB_THEME[activeTab]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-800/10 to-[#f8fafc] p-8">
-      {/* Glass Header Container */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white/5 backdrop-blur-md border-b border-white/10 p-8 mb-8 rounded-t-3xl"
-      >
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg shadow-cyan-400/30 mb-6 group"
-        >
-          <ArrowLeft className="w-5 h-5 text-white group-hover:-translate-x-1 transition-transform" />
-          <span className="text-white">Back</span>
-        </motion.button>
-
-        <Breadcrumbs
-          items={[
+    <UfpAdminShell>
+      <UfpAdminPageWide>
+        <UfpManagementPageHeader
+          breadcrumbItems={[
             { label: 'Dashboard', path: '/ufp-dashboard' },
-            { label: 'Board Management' }
+            { label: 'Board Management' },
           ]}
-          className="text-white/80 mb-2"
+          title="Board Management"
+          description="Board of Faculty and Board of Studies: terms, meeting frequency, and membership. Academic Council is maintained under Governance → Academic Council."
+          icon={<LayoutList className="h-5 w-5" strokeWidth={2} aria-hidden />}
+          primaryAction={{ label: 'Add Board', onClick: () => setShowForm(true) }}
         />
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Board Management</h2>
-            <p className="text-white/90">
-              Manage statutory academic boards and committees
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add Board</span>
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-lg p-2 mb-6 border border-slate-200 flex gap-2">
-        {Object.values(BOARD_LEVELS).map((level) => (
+      {/* Tabs — color-coded: Faculty (indigo) vs Studies (emerald) */}
+      <div className="mb-4 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-sm">
+        <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
+          {BOARD_MAIN_TABS.map((level) => {
+            const isActive = activeTab === level
+            const t = BOARD_TAB_THEME[level]
+            return (
           <button
             key={level}
+                type="button"
             onClick={() => {
               setActiveTab(level)
               setSearchQuery('')
             }}
-            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === level
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            {level}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                  isActive ? t.tabActive : t.tabInactive
+                }`}
+              >
+                {level === BOARD_LEVELS.FACULTY ? (
+                  <Building2 className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                ) : (
+                  <BookOpen className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                )}
+                <span>{level}</span>
           </button>
-        ))}
+            )
+          })}
+        </div>
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-slate-200">
+      <div
+        className={`mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm ${
+          activeTab === BOARD_LEVELS.FACULTY ? 'ring-1 ring-indigo-500/10' : 'ring-1 ring-emerald-500/10'
+        }`}
+      >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search boards by name..."
+            placeholder="Search boards by name…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+            className={`w-full rounded-xl border border-slate-300 py-2.5 pl-11 pr-4 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${tabTheme.searchFocus}`}
           />
         </div>
       </div>
 
-      {/* Boards Grid */}
+      {/* Boards table — themed shell, readable type scale */}
       {filteredBoards.length === 0 ? (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-16 border border-slate-100 text-center max-w-2xl mx-auto"
+          transition={{ duration: 0.35 }}
+          className={`overflow-hidden rounded-2xl border bg-white ${tabTheme.shell}`}
         >
-          <Building2 className="w-24 h-24 mx-auto mb-6 text-slate-300" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-3">No Boards Found</h3>
-          <p className="text-slate-600 mb-8 text-lg">
-            Get started by creating your first {activeTab === BOARD_LEVELS.UNIVERSITY ? BOARD_TYPES.UNIVERSITY :
-            activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY :
-            BOARD_TYPES.DEPARTMENT} board.
-          </p>
+          <div className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${tabTheme.summary}`}>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tabTheme.summaryIcon}`}
+              >
+                {activeTab === BOARD_LEVELS.FACULTY ? (
+                  <Building2 className="h-6 w-6" aria-hidden />
+                ) : (
+                  <BookOpen className="h-6 w-6" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h3 className="truncate text-lg font-bold text-slate-900 sm:text-xl">
+                    {activeTab === BOARD_LEVELS.FACULTY ? 'Board of Faculty' : 'Board of Studies'}
+                  </h3>
+                  <span className="shrink-0 text-base font-semibold text-slate-500">(0)</span>
+                  <span
+                    className={`hidden rounded-full px-2.5 py-0.5 text-xs font-semibold sm:inline-flex ${
+                      activeTab === BOARD_LEVELS.FACULTY
+                        ? 'bg-indigo-100 text-indigo-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {activeTab === BOARD_LEVELS.FACULTY ? 'Faculty level' : 'Department level'}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-sm text-slate-600">
+                  {activeTab === BOARD_LEVELS.FACULTY
+                    ? 'Faculty-level boards: term, meeting cadence, chairperson, and members.'
+                    : 'Department-level boards of studies under your faculties.'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="max-h-[min(72vh,760px)] overflow-auto">
+            <table className="w-full min-w-[800px] table-fixed border-collapse text-left">
+              <thead className={`sticky top-0 z-10 border-b border-slate-200/90 ${tabTheme.thead}`}>
+                <tr>
+                  <th className="w-14 px-4 py-3.5" aria-hidden />
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Board name</th>
+                  <th className="w-[22%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Term</th>
+                  <th className="w-[18%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Meetings</th>
+                  <th className="w-[14%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Status</th>
+                  <th className="w-[20%] px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={6} className="border-b border-slate-100 px-5 py-8 align-top">
+                    {searchQuery.trim() ? (
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-lg font-semibold text-slate-900">No boards match your search</p>
+                          <p className="mt-2 max-w-xl text-base leading-relaxed text-slate-600">
+                            Try another name, or clear the filter to see all{' '}
+                            {activeTab === BOARD_LEVELS.FACULTY ? 'faculty' : 'department'} boards in this tab.
+                          </p>
+                        </div>
           <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-5 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors sm:w-auto"
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 gap-4">
+                          <div
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tabTheme.summaryIcon}`}
+                          >
+                            {activeTab === BOARD_LEVELS.FACULTY ? (
+                              <Building2 className="h-6 w-6" aria-hidden />
+                            ) : (
+                              <BookOpen className="h-6 w-6" aria-hidden />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-lg font-semibold text-slate-900">
+                              {activeTab === BOARD_LEVELS.FACULTY
+                                ? 'No Board of Faculty records yet'
+                                : 'No Board of Studies records yet'}
+                            </p>
+                            <p className="mt-2 max-w-xl text-base leading-relaxed text-slate-600">
+                              {activeTab === BOARD_LEVELS.FACULTY
+                                ? 'Add a faculty board with term and meeting cadence, then attach members.'
+                                : 'Add a department board of studies, set term and meetings, then add members.'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg text-lg"
-          >
-            <Plus className="w-6 h-6" />
-            <span>Add First Board</span>
+                          className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold text-white shadow-md transition-colors sm:w-auto ${
+                            activeTab === BOARD_LEVELS.FACULTY
+                              ? 'bg-indigo-700 hover:bg-indigo-800'
+                              : 'bg-emerald-700 hover:bg-emerald-800'
+                          }`}
+                        >
+                          <Plus className="h-5 w-5" />
+                          Add first board
           </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredBoards.map((board, index) => {
+        <div className={`overflow-hidden rounded-2xl border bg-white ${tabTheme.shell}`}>
+          <div className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${tabTheme.summary}`}>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tabTheme.summaryIcon}`}
+              >
+                {activeTab === BOARD_LEVELS.FACULTY ? (
+                  <Building2 className="h-6 w-6" aria-hidden />
+                ) : (
+                  <BookOpen className="h-6 w-6" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h3 className="truncate text-lg font-bold text-slate-900 sm:text-xl">
+                    {activeTab === BOARD_LEVELS.FACULTY ? 'Board of Faculty' : 'Board of Studies'}
+                  </h3>
+                  <span className="shrink-0 text-base font-semibold text-slate-500">
+                    ({filteredBoards.length})
+                  </span>
+                  <span
+                    className={`hidden rounded-full px-2.5 py-0.5 text-xs font-semibold sm:inline-flex ${
+                      activeTab === BOARD_LEVELS.FACULTY
+                        ? 'bg-indigo-100 text-indigo-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {activeTab === BOARD_LEVELS.FACULTY ? 'Faculty level' : 'Department level'}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-sm text-slate-600">
+                  {activeTab === BOARD_LEVELS.FACULTY
+                    ? 'Chairperson is taken from the faculty record (dean name).'
+                    : 'Boards are tied to a department under the selected faculty.'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="max-h-[min(72vh,760px)] overflow-auto">
+            <table className="w-full min-w-[800px] table-fixed border-collapse text-left">
+              <thead className={`sticky top-0 z-10 border-b border-slate-200/90 ${tabTheme.thead}`}>
+                <tr>
+                  <th className="w-14 px-4 py-3.5" aria-hidden />
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Board name</th>
+                  <th className="w-[22%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Term</th>
+                  <th className="w-[18%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Meetings</th>
+                  <th className="w-[14%] px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Status</th>
+                  <th className="w-[20%] px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredBoards.map((board) => {
             const status = getStatus(board.term_start, board.term_end)
             const StatusIcon = status.icon
+                  const TypeIcon = board.board_type === BOARD_TYPES.FACULTY ? Building2 : BookOpen
+                  const facultyRow = facultyRelationFromBoard(board)
+                  const facultyChairName =
+                    board.board_type === BOARD_TYPES.FACULTY
+                      ? (facultyRow?.dean_name || '').trim() || board.staff?.full_name || ''
+                      : ''
 
             return (
-              <motion.div
-                key={board.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 hover:shadow-xl transition-all flex flex-col"
-              >
-                {/* Status Badge */}
-                <div className={`flex items-center justify-between mb-4`}>
-                  <div className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${status.color}`}>
-                    <StatusIcon className="w-3 h-3" />
-                    <span>{status.label}</span>
+                    <tr key={board.id} className={`${tabTheme.row} transition-colors`}>
+                      <td className="px-4 py-4 align-middle">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                            board.board_type === BOARD_TYPES.FACULTY
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          <TypeIcon className="h-5 w-5" aria-hidden />
                   </div>
-                  <div className="flex items-center gap-2">
+                      </td>
+                      <td className="px-4 py-4 align-middle">
+                        <div className="text-base font-semibold leading-snug text-slate-900 line-clamp-2">
+                          {board.name}
+                        </div>
+                        {board.board_type === BOARD_TYPES.FACULTY && facultyChairName && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-600">
+                            <Crown className="h-4 w-4 shrink-0 text-amber-600" />
+                            <span className="truncate font-medium">Chair: {facultyChairName}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm font-medium leading-relaxed text-slate-700">
+                        {formatDate(board.term_start)}
+                        <span className="mx-1 text-slate-400">–</span>
+                        {formatDate(board.term_end)}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm font-medium text-slate-700">
+                        {board.meeting_frequency}
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${status.color}`}
+                        >
+                          <StatusIcon className="h-4 w-4 shrink-0" />
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
+                            type="button"
+                            onClick={() => handleManageMembers(board)}
+                            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition-colors ${
+                              activeTab === BOARD_LEVELS.FACULTY
+                                ? 'border-indigo-200 bg-indigo-50 text-indigo-900 hover:bg-indigo-100'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                            }`}
+                            title="Manage members"
+                          >
+                            <Users className="h-4 w-4" />
+                            Members
+                          </button>
+                          <button
+                            type="button"
                       onClick={() => handleEditBoard(board)}
-                      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all"
+                            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
                       title="Edit board"
                     >
-                      <Edit2 className="w-4 h-4" />
+                            <Edit2 className="h-4 w-4" />
                     </button>
                     <button
+                            type="button"
                       onClick={() => handleDeleteBoard(board.id)}
-                      className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all"
+                            className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 p-2.5 text-red-800 shadow-sm hover:bg-red-100 transition-colors"
                       title="Delete board"
                     >
-                      <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                </div>
-
-                {/* Board Name */}
-                <h3 className="text-xl font-bold text-slate-900 mb-3 line-clamp-2">
-                  {board.name}
-                </h3>
-
-                {/* Dean Display (Board of Faculty only) */}
-                {board.board_type === BOARD_TYPES.FACULTY && board.staff && board.staff.full_name && (
-                  <div className="mb-3 pb-3 border-b border-slate-200">
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <Crown className="w-4 h-4 text-amber-600" />
-                      <span className="font-semibold">Chairperson/Dean:</span>
-                      <span className="text-slate-900">{board.staff.full_name}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Term Dates */}
-                <div className="mb-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>Term: {formatDate(board.term_start)} - {formatDate(board.term_end)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Clock className="w-4 h-4" />
-                    <span>Meets: {board.meeting_frequency}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <button
-                  onClick={() => handleManageMembers(board)}
-                  className="mt-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Manage Members</span>
-                </button>
-              </motion.div>
-            )
-          })}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -843,16 +977,14 @@ function BoardManagement() {
                       <Plus className="w-5 h-5 text-cyan-600" />
                     </div>
                     <h3 className="text-xl font-semibold text-slate-900">
-                      {editingBoard ? 'Edit' : 'Create'} {activeTab === BOARD_LEVELS.UNIVERSITY ? BOARD_TYPES.UNIVERSITY :
-                             activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY :
-                             BOARD_TYPES.DEPARTMENT}
+                      {editingBoard ? 'Edit' : 'Create'}{' '}
+                      {activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY : BOARD_TYPES.DEPARTMENT}
                     </h3>
                   </div>
                   <button
                     onClick={() => {
                       setShowForm(false)
                       setEditingBoard(null)
-                      setDeanNotFoundWarning(false)
                     }}
                     className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                   >
@@ -887,22 +1019,7 @@ function BoardManagement() {
                           </label>
                           <select
                             value={facultyId}
-                            onChange={(e) => {
-                              const selectedFacultyId = e.target.value
-                              setFacultyId(selectedFacultyId)
-                              
-                              // Auto-lookup dean_id from selected faculty
-                              if (selectedFacultyId) {
-                                const selectedFaculty = faculties.find(f => f.id === selectedFacultyId)
-                                if (selectedFaculty?.dean_id) {
-                                  setDeanId(selectedFaculty.dean_id)
-                                } else {
-                                  setDeanId('')
-                                }
-                              } else {
-                                setDeanId('')
-                              }
-                            }}
+                            onChange={(e) => setFacultyId(e.target.value)}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                             required
                           >
@@ -916,54 +1033,33 @@ function BoardManagement() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-900 mb-2">
-                            Select Dean (Chairperson) {!editingBoard && <span className="text-red-500">*</span>}
+                            Dean (Chairperson) <span className="text-red-500">*</span>
                           </label>
-                          <select
-                            value={deanId}
-                            onChange={(e) => setDeanId(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
-                            required={!editingBoard}
-                          >
-                            <option value="">Select Dean</option>
-                            {deans.map((dean) => (
-                              <option key={dean.id} value={dean.id}>
-                                {dean.full_name} {dean.administrative_role === 'Dean' ? '(Dean)' : dean.academic_designation === 'Professor' ? '(Professor)' : ''}
-                              </option>
-                            ))}
-                          </select>
-                          {(() => {
-                            if (editingBoard && deanNotFoundWarning) {
-                              return (
-                                <p className="mt-1 text-xs text-amber-600 font-medium">
-                                  ⚠ Dean name not found in Staff records.
-                                </p>
-                              )
+                          <input
+                            type="text"
+                            readOnly
+                            value={facultyId ? selectedFacultyDeanName : ''}
+                            placeholder={
+                              facultyId
+                                ? ''
+                                : 'Select a faculty — dean name is filled from the faculty record automatically.'
                             }
-                            if (editingBoard && !deanId && !deanNotFoundWarning) {
-                              return (
-                                <p className="mt-1 text-xs text-slate-500 italic">
-                                  You can retroactively assign a Dean to this board.
-                                </p>
-                              )
-                            }
-                            if (!editingBoard && facultyId) {
-                              const selectedFaculty = faculties.find(f => f.id === facultyId)
-                              if (selectedFaculty?.dean_id && deanId === selectedFaculty.dean_id) {
-                                return (
-                                  <p className="mt-1 text-xs text-green-600 font-medium">
-                                    ✓ Official Dean identified from Faculty records.
-                                  </p>
-                                )
-                              } else if (selectedFaculty && !selectedFaculty.dean_id) {
-                                return (
-                                  <p className="mt-1 text-xs text-amber-600 font-medium">
-                                    ⚠ Please assign a Dean to this Faculty first.
-                                  </p>
-                                )
-                              }
-                            }
-                            return null
-                          })()}
+                            className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none cursor-default ${
+                              facultyId && selectedFacultyDeanName
+                                ? 'border-slate-300 bg-slate-50 text-slate-900'
+                                : 'border-slate-200 bg-slate-50 text-slate-500 placeholder:text-slate-400'
+                            }`}
+                            aria-readonly="true"
+                          />
+                          {facultyId && !selectedFacultyDeanName ? (
+                            <p className="mt-1 text-sm text-amber-700">
+                              This faculty has no dean name on file. Add it on the faculty record before saving this
+                              board.
+                            </p>
+                          ) : null}
+                          {facultyId && selectedFacultyDeanEmail ? (
+                            <p className="mt-1 text-xs text-slate-500">{selectedFacultyDeanEmail}</p>
+                          ) : null}
                         </div>
                       </>
                     )}
@@ -1069,7 +1165,6 @@ function BoardManagement() {
                         onClick={() => {
                           setShowForm(false)
                           setEditingBoard(null)
-                          setDeanNotFoundWarning(false)
                         }}
                         className="flex-1 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-all"
                       >
@@ -1110,6 +1205,7 @@ function BoardManagement() {
                 setShowMemberModal(false)
                 setSelectedBoard(null)
                 setBoardMembers([])
+                setCustomMemberRole('')
               }}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
             />
@@ -1138,6 +1234,7 @@ function BoardManagement() {
                       setShowMemberModal(false)
                       setSelectedBoard(null)
                       setBoardMembers([])
+                      setCustomMemberRole('')
                     }}
                     className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                   >
@@ -1206,7 +1303,12 @@ function BoardManagement() {
                         </label>
                         <select
                           value={memberRole}
-                          onChange={(e) => setMemberRole(e.target.value)}
+                          onChange={(e) => {
+                            setMemberRole(e.target.value)
+                            if (e.target.value !== OTHER_BOARD_MEMBER_ROLE) {
+                              setCustomMemberRole('')
+                            }
+                          }}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                           required
                         >
@@ -1216,7 +1318,17 @@ function BoardManagement() {
                               {role}
                             </option>
                           ))}
+                          <option value={OTHER_BOARD_MEMBER_ROLE}>Other (type your own)</option>
                         </select>
+                        {memberRole === OTHER_BOARD_MEMBER_ROLE && (
+                          <input
+                            type="text"
+                            value={customMemberRole}
+                            onChange={(e) => setCustomMemberRole(e.target.value)}
+                            placeholder="Enter role (e.g., Co-opted member, Observer)"
+                            className="mt-2 w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -1370,7 +1482,8 @@ function BoardManagement() {
           {toast.message}
         </motion.div>
       )}
-    </div>
+      </UfpAdminPageWide>
+    </UfpAdminShell>
   )
 }
 

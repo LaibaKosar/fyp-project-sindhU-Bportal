@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { recordSystemLog } from '../utils/systemLogs'
+import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { 
   LayoutDashboard, 
   Building2, 
@@ -24,6 +25,7 @@ import {
   BarChart3,
   Gavel,
   LayoutGrid,
+  Landmark,
 } from 'lucide-react'
 
 function UFPDashboard() {
@@ -58,6 +60,7 @@ function UFPDashboard() {
                        location.pathname.includes('/boards') ? 'governance' :
                        location.pathname.includes('/senate') ? 'governance' :
                        location.pathname.includes('/syndicate') ? 'governance' :
+                       location.pathname.includes('/academic-council') ? 'governance' :
                        location.pathname.includes('/governance') ? 'governance' :
                        'overview'
 
@@ -465,8 +468,8 @@ function UFPDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 to-emerald-100/50 flex items-center justify-center">
-        <div className="text-emerald-600 text-xl">Loading...</div>
+      <div className={`${UFP_PAGE_GRADIENT_CLASS} flex items-center justify-center`}>
+        <div className="text-slate-600 text-xl">Loading...</div>
       </div>
     )
   }
@@ -697,6 +700,15 @@ function UFPDashboard() {
             >
               <Briefcase className="h-6 w-6 flex-shrink-0" aria-hidden />
               <span>Syndicate</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/ufp/academic-council')}
+              className={location.pathname.includes('/academic-council') ? navPillActive : navPillInactive}
+              aria-current={location.pathname.includes('/academic-council') ? 'page' : undefined}
+            >
+              <Landmark className="h-6 w-6 flex-shrink-0" aria-hidden />
+              <span>Academic Council</span>
             </button>
             <button
               type="button"
