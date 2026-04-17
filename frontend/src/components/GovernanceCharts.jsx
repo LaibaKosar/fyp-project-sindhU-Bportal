@@ -301,7 +301,7 @@ function GovernanceCharts({
     }
     return (Array.isArray(data) ? data : [])
       .filter((u) => u && u.total_staff !== undefined)
-      .sort((a, b) => (b.total_staff || 0) - (a.total_staff || 0))
+    .sort((a, b) => (b.total_staff || 0) - (a.total_staff || 0))
       .map((u) => {
         const fullRaw = u.university_name ?? 'Unknown'
         const full = typeof fullRaw === 'string' ? fullRaw : String(fullRaw)
@@ -316,7 +316,7 @@ function GovernanceCharts({
           university: truncateLabel(short, 22),
           universityFull: full,
           universityShort: short,
-          staff: u.total_staff || 0,
+      staff: u.total_staff || 0,
           faculties: u.total_faculties || 0,
           staff_male: Number(u.staff_male) || 0,
           staff_female: Number(u.staff_female) || 0,
@@ -416,7 +416,7 @@ function GovernanceCharts({
                 <Users className="h-4 w-4 text-indigo-600" />
                 <span className="text-xs font-bold uppercase tracking-wide text-indigo-800/90">
                   Staff gender split
-                </span>
+                      </span>
               </div>
               <AnimatePresence mode="wait">
                 <motion.div
@@ -490,11 +490,11 @@ function GovernanceCharts({
               <BarChart3 className="h-5 w-5 text-blue-600" />
               Staff & faculties comparison
             </h3>
-            {presentationMode && (
+          {presentationMode && (
               <span className="rounded border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                Presentation mode
-              </span>
-            )}
+              Presentation mode
+            </span>
+          )}
           </div>
           <p className="mb-1 text-xs text-slate-500">
             <span className="font-medium text-blue-700">Blue</span> bars = total staff (people).{' '}
@@ -624,7 +624,7 @@ function GovernanceCharts({
                       </span>
                     </div>
                   </div>
-                </div>
+                      </div>
 
                 <div className="lg:col-span-2">
                   <div className="mb-3">
@@ -639,7 +639,7 @@ function GovernanceCharts({
                       const borderAccent =
                         band && DENSITY_BAND_BORDER[band] ? DENSITY_BAND_BORDER[band] : 'border-l-slate-200'
                       const showCardInsight = insight.insight && !sharedGlanceInsight
-                      return (
+              return (
                         <motion.div
                           key={`${item.university_id}-${resourcePage}-${index}`}
                           initial={reducedMotion ? false : { opacity: 0, x: 8 }}
@@ -685,8 +685,8 @@ function GovernanceCharts({
                       {sharedGlanceInsight}
                     </p>
                   )}
-                </div>
-              </div>
+                      </div>
+                    </div>
 
               <div
                 className={
@@ -773,7 +773,7 @@ function GovernanceCharts({
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>
-                  </div>
+                    </div>
                 </div>
               </div>
             </>

@@ -502,7 +502,7 @@ function UBAdminDashboard() {
       if (missing.length === 0) return
 
       const { error: insertError } = await supabase
-        .from('universities')
+          .from('universities')
         .insert(missing.map((name) => ({ name })))
 
       if (insertError) {
@@ -666,7 +666,7 @@ function UBAdminDashboard() {
           : 'This email is already assigned to another user.'
       return { isDuplicate: true, message: orphan }
     }
-
+    
     return { isDuplicate: false }
   }
 
@@ -1195,8 +1195,8 @@ function UBAdminDashboard() {
               )}
             </div>
             <p className="text-slate-500 max-w-3xl">
-              {activeSection === 'overview'
-                ? 'Comprehensive analytics and governance oversight for all 27 universities'
+              {activeSection === 'overview' 
+                ? 'Comprehensive analytics and governance oversight for all 27 universities' 
                 : activeSection === 'universities'
                   ? 'Manage university accounts and focal persons'
                   : activeSection === 'accounts'
@@ -1220,7 +1220,7 @@ function UBAdminDashboard() {
               <SectionErrorBoundary
                 title="Governance Command Center could not be displayed."
                 logLabel="UBAdmin overview section"
-              >
+            >
               {/* Loading State for Analytics */}
               {loading && analyticsData.length === 0 && (
                 <div className="rounded-xl border-2 border-blue-300/75 bg-white p-12 text-center shadow-md ring-1 ring-blue-200/50 transition-shadow duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/10">
@@ -1265,13 +1265,13 @@ function UBAdminDashboard() {
                       <div className="text-slate-500 text-xs font-medium">Setup pending</div>
                       <div className="text-2xl font-bold text-slate-900 leading-tight">
                         {simulationMode ? 0 : setupPendingCount}
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-0.5">No focal account yet</p>
                     </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">No focal account yet</p>
                   </div>
                 </div>
               </div>
-
+                  </div>
+                  
               {/* Region command center — full width */}
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -1287,7 +1287,7 @@ function UBAdminDashboard() {
                   <p className="text-xs text-slate-500 max-w-xl">
                     Geographic-style grouping from names only. Chart, filters, and directory are aligned in one panel.
                   </p>
-                </div>
+                  </div>
 
                 <div className="flex-1 min-h-0 rounded-xl border-2 border-blue-200/70 bg-slate-50/30 p-4 ring-1 ring-blue-100/60 transition-all duration-300 ease-out hover:border-blue-300 hover:bg-slate-50/60 hover:shadow-inner sm:p-5">
                   <SectionErrorBoundary
@@ -1296,7 +1296,7 @@ function UBAdminDashboard() {
                   >
                     {(mapData?.length ?? 0) > 0 ? (
                       <RegisteredUniversitiesByRegion
-                        data={mapData}
+                        data={mapData} 
                         selectedDivision={selectedDivision}
                         onSelectDivision={setSelectedDivision}
                         searchQuery={overviewRegionSearch}
@@ -1312,7 +1312,7 @@ function UBAdminDashboard() {
                       </div>
                     )}
                   </SectionErrorBoundary>
-                </div>
+                  </div>
               </motion.div>
 
               {/* Readiness + resources (single grid: gender panel stacks under readiness on the left) */}
@@ -1322,12 +1322,12 @@ function UBAdminDashboard() {
                   logLabel="UBAdmin overview: GovernanceCharts"
                 >
                   <div className="rounded-xl border-2 border-blue-300/75 shadow-md ring-1 ring-blue-200/45 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-blue-400/90 hover:shadow-xl hover:shadow-blue-500/15">
-                    <GovernanceCharts
+                      <GovernanceCharts
                       data={mapData}
-                      presentationMode={presentationMode}
+                        presentationMode={presentationMode}
                       sections={['boards', 'resources']}
-                    />
-                  </div>
+                      />
+                    </div>
                 </SectionErrorBoundary>
               ) : (
                 <div className="flex h-[220px] items-center justify-center rounded-xl border-2 border-dashed border-blue-300/80 bg-white text-sm text-slate-500 shadow-md ring-1 ring-blue-200/40 transition-all duration-300 ease-out hover:border-blue-400 hover:bg-blue-50/40 hover:shadow-md hover:shadow-blue-500/10">
@@ -1353,7 +1353,7 @@ function UBAdminDashboard() {
                     <div className="flex items-start gap-3 sm:gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-2 ring-white/30 backdrop-blur-sm">
                         <Activity className="h-6 w-6 text-white" strokeWidth={2.25} />
-                      </div>
+                    </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-lg font-bold tracking-tight sm:text-xl">Live system logs</h3>
@@ -1363,18 +1363,18 @@ function UBAdminDashboard() {
                         </div>
                         <p className="mt-1.5 max-w-2xl text-sm leading-snug text-blue-50/95">
                           Security, compliance, and institutional actions across the portal — monitored in real time for U&amp;B oversight.
-                        </p>
-                      </div>
-                    </div>
+                            </p>
+                          </div>
+                        </div>
                     <div className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm sm:self-center">
                       <span className="relative flex h-2.5 w-2.5">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-80" />
                         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white/40" />
-                      </span>
+                                </span>
                       Auto-refresh · 10s
-                    </div>
-                  </div>
-                </div>
+                              </div>
+                              </div>
+                            </div>
 
                 <div className="relative bg-white/75 p-4 backdrop-blur-[2px] sm:p-5">
                   <SectionErrorBoundary
@@ -1387,7 +1387,7 @@ function UBAdminDashboard() {
                       variant="commandCenter"
                     />
                   </SectionErrorBoundary>
-                </div>
+                          </div>
               </motion.div>
 
                 </>
@@ -1653,7 +1653,7 @@ function UBAdminDashboard() {
                       </tbody>
                     </table>
                   )}
-                </div>
+              </div>
             </motion.div>
           )}
 
@@ -1896,9 +1896,9 @@ function UBAdminDashboard() {
                                 : 'border-amber-200 bg-amber-50 text-amber-800'
                             }`}
                           >
-                            {row.status || 'Draft'}
-                          </span>
-                        )
+                          {row.status || 'Draft'}
+                        </span>
+                      )
                       }
                     }
                   ]}
@@ -2004,16 +2004,16 @@ function UBAdminDashboard() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setDecisionViewMeeting(null)}
-                    className="shrink-0 rounded-lg p-2 text-white/90 hover:bg-white/15 hover:text-white transition-colors"
-                    aria-label="Close"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setDecisionViewMeeting(null)}
+                    className="shrink-0 rounded-lg p-2 text-white/90 hover:bg-white/15 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
               </div>
               <div className="flex-1 overflow-y-auto px-8 py-6 bg-gradient-to-b from-indigo-50/40 via-white to-emerald-50/20">
                 <div className="flex items-center gap-2 mb-3">
