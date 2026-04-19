@@ -27,13 +27,19 @@ const REPORT_TYPES = [
   'Admission Summary'
 ]
 
-// Fiscal Years
-const FISCAL_YEARS = [
-  '2023-2024',
-  '2024-2025',
-  '2025-2026',
-  '2026-2027'
-]
+/** Fiscal year suggestions (July–June style: start year–start year+1). Shown in datalist; users may type any value. */
+function generateFiscalYearSuggestions(fromStartYear, toStartYear) {
+  const out = []
+  for (let y = fromStartYear; y <= toStartYear; y += 1) {
+    out.push(`${y}-${y + 1}`)
+  }
+  return out
+}
+
+const FISCAL_YEAR_SUGGESTIONS = generateFiscalYearSuggestions(1985, 2045)
+
+/** Filter value: reports whose type is not one of the predefined REPORT_TYPES */
+const FILTER_CUSTOM_REPORT_TYPES = '__custom_report_types__'
 
 // Report Type Colors
 const REPORT_TYPE_COLORS = {
@@ -59,7 +65,8 @@ function ReportArchive() {
 
   // Form state
   const [title, setTitle] = useState('')
-  const [reportType, setReportType] = useState('')
+  const [reportTypeSelect, setReportTypeSelect] = useState('')
+  const [customReportType, setCustomReportType] = useState('')
   const [fiscalYear, setFiscalYear] = useState('')
   const [reportFile, setReportFile] = useState(null)
   const [fileName, setFileName] = useState('')
@@ -145,8 +152,10 @@ function ReportArchive() {
     }
 
     // Filter by report type
-    if (filterType) {
-      filtered = filtered.filter(report => report.report_type === filterType)
+    if (filterType === FILTER_CUSTOM_REPORT_TYPES) {
+      filtered = filtered.filter((report) => !REPORT_TYPES.includes(report.report_type))
+    } else if (filterType) {
+      filtered = filtered.filter((report) => report.report_type === filterType)
     }
 
     setFilteredReports(filtered)
@@ -221,7 +230,16 @@ function ReportArchive() {
       return
     }
 
-    if (!title || !reportType || !fiscalYear || !reportFile) {
+    const resolvedReportType =
+      reportTypeSelect === 'Other' ? customReportType.trim() : reportTypeSelect.trim()
+    const resolvedFiscalYear = fiscalYear.trim()
+
+    if (reportTypeSelect === 'Other' && !customReportType.trim()) {
+      showToast('Please enter a report type when "Other" is selected', 'error')
+      return
+    }
+
+    if (!title || !resolvedReportType || !resolvedFiscalYear || !reportFile) {
       showToast('Please fill in all required fields and select a PDF file', 'error')
       return
     }
@@ -239,8 +257,8 @@ function ReportArchive() {
       const reportData = {
         university_id: user.university_id,
         title: title,
-        report_type: reportType,
-        fiscal_year: fiscalYear,
+        report_type: resolvedReportType,
+        fiscal_year: resolvedFiscalYear,
         file_url: reportUrl,
         date_submitted: new Date().toISOString()
       }
@@ -254,14 +272,15 @@ function ReportArchive() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'REPORT_SUBMITTED',
-        details: `Submitted report: ${title} (${reportType}, ${fiscalYear}).`,
+        details: `Submitted report: ${title} (${resolvedReportType}, ${resolvedFiscalYear}).`,
       })
 
       showToast('Report uploaded successfully!', 'success')
       
       // Clear form
       setTitle('')
-      setReportType('')
+      setReportTypeSelect('')
+      setCustomReportType('')
       setFiscalYear('')
       setReportFile(null)
       setFileName('')
@@ -380,9 +399,12 @@ function ReportArchive() {
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 appearance-none bg-white text-slate-700 cursor-pointer [&>option]:text-slate-900 [&>option]:bg-white"
             >
               <option value="">Filter by report type...</option>
-              {REPORT_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
+              {REPORT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
+              <option value={FILTER_CUSTOM_REPORT_TYPES}>Custom / other type</option>
             </select>
           </div>
 
@@ -538,14 +560,17 @@ function ReportArchive() {
                     </div>
 
                     {/* Report Type and Fiscal Year */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-slate-900 mb-2">
                           Report Type <span className="text-red-500">*</span>
                         </label>
                         <select
-                          value={reportType}
-                          onChange={(e) => setReportType(e.target.value)}
+                          value={reportTypeSelect}
+                          onChange={(e) => {
+                            setReportTypeSelect(e.target.value)
+                            if (e.target.value !== 'Other') setCustomReportType('')
+                          }}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         >
@@ -555,25 +580,42 @@ function ReportArchive() {
                               {type}
                             </option>
                           ))}
+                          <option value="Other">Other (specify below)</option>
                         </select>
+                        {reportTypeSelect === 'Other' && (
+                          <input
+                            type="text"
+                            value={customReportType}
+                            onChange={(e) => setCustomReportType(e.target.value)}
+                            placeholder="Enter your report type"
+                            className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                            aria-label="Custom report type"
+                          />
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-900 mb-2">
+                        <label className="block text-sm font-medium text-slate-900 mb-2" htmlFor="fiscal-year-input">
                           Fiscal Year <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <input
+                          id="fiscal-year-input"
+                          type="text"
+                          list="fiscal-year-suggestions"
                           value={fiscalYear}
                           onChange={(e) => setFiscalYear(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                          placeholder="e.g. 2024-2025 or choose from suggestions"
+                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
-                        >
-                          <option value="">Select Year</option>
-                          {FISCAL_YEARS.map((year) => (
-                            <option key={year} value={year}>
-                              {year}
-                            </option>
+                          autoComplete="off"
+                        />
+                        <datalist id="fiscal-year-suggestions">
+                          {FISCAL_YEAR_SUGGESTIONS.map((fy) => (
+                            <option key={fy} value={fy} />
                           ))}
-                        </select>
+                        </datalist>
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          Type any fiscal year label, or pick a suggestion (1985–1986 through 2045–2046).
+                        </p>
                       </div>
                     </div>
 

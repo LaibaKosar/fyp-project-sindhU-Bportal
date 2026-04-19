@@ -330,8 +330,7 @@ function UBAdminDashboard() {
   const [isInitializing, setIsInitializing] = useState(false)
   const [toast, setToast] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [simulationMode, setSimulationMode] = useState(false)
-  const [presentationMode, setPresentationMode] = useState(false)
+  const [presentationMode, setPresentationMode] = useState(true)
   const [selectedDivision, setSelectedDivision] = useState('all')
   const [overviewRegionSearch, setOverviewRegionSearch] = useState('')
   // Staff Directory (all universities)
@@ -1252,7 +1251,7 @@ function UBAdminDashboard() {
                     </div>
                     <div>
                       <div className="text-slate-500 text-xs font-medium">Active Accounts</div>
-                      <div className="text-2xl font-bold text-slate-900 leading-tight">{simulationMode ? totalUniversities || universities.length : activeAccounts}</div>
+                      <div className="text-2xl font-bold text-slate-900 leading-tight">{presentationMode ? totalUniversities || universities.length : activeAccounts}</div>
                     </div>
                   </div>
                 </div>
@@ -1264,7 +1263,7 @@ function UBAdminDashboard() {
                     <div>
                       <div className="text-slate-500 text-xs font-medium">Setup pending</div>
                       <div className="text-2xl font-bold text-slate-900 leading-tight">
-                        {simulationMode ? 0 : setupPendingCount}
+                        {presentationMode ? 0 : setupPendingCount}
                     </div>
                       <p className="text-[10px] text-slate-400 mt-0.5">No focal account yet</p>
                   </div>

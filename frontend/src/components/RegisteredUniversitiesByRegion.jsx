@@ -27,6 +27,7 @@ const REGION_CHART_COLORS = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#64748
 
 /**
  * Infer administrative region from university name only (ub_analytics_hub has no city column).
+ * Cities such as Khairpur, Nawabshah, Benazirabad, Shikarpur are routed to "others", not Sukkur.
  */
 export function inferRegionFromUniversityName(name) {
   if (!name || typeof name !== 'string') return 'others'
@@ -78,17 +79,28 @@ export function inferRegionFromUniversityName(name) {
     return 'hyderabad'
   }
 
+  // Sindh cities / campus names outside Sukkur city — do not group under Sukkur.
+  // (Begum Nusrat Bhutto Women University Sukkur is matched by the Sukkur branch via "sukkur" in the name.)
+  if (
+    matches([
+      'shikarpur',
+      'khairpur',
+      'nawabshah',
+      'benazirabad',
+      'shaheed benazirabad',
+      'shah abdul latif',
+      'quaid-e-awam',
+      'quaid e awam',
+    ])
+  ) {
+    return 'others'
+  }
+
   if (
     matches([
       'sukkur',
-      'shah abdul latif university',
-      'khairpur',
-      'benazirabad',
-      'nawabshah',
       'shaikh ayaz',
       'aror university',
-      'begum nusrat bhutto',
-      'quaid-e-awam university',
       'veterinary & animal sciences',
     ])
   ) {
@@ -230,7 +242,9 @@ export default function RegisteredUniversitiesByRegion({
             <h4 className="text-sm font-semibold">Distribution by inferred region</h4>
           </div>
           <p className="mb-3 text-xs text-slate-500">
-            Based on university name keywords (not GPS). Select a bar to focus that region below.
+            Based on university name keywords (not GPS). Select a bar to focus that region below. Other regions
+            includes names that indicate cities outside Karachi, Hyderabad, Larkana, or Sukkur city (e.g. Khairpur,
+            Nawabshah, Shikarpur).
           </p>
           <div className="h-[220px] w-full min-h-[220px] min-w-0">
             <ResponsiveContainer width="100%" height={220} minHeight={220} minWidth={0}>

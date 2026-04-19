@@ -12,7 +12,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { BarChart3, ChevronLeft, ChevronRight, GraduationCap, Info, Users } from 'lucide-react'
+import {
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  GraduationCap,
+  Info,
+  Mars,
+  Users,
+  Venus,
+} from 'lucide-react'
 import { getResourceInsightForItem } from '../utils/governanceInsights'
 
 export { getResourceInsightForItem }
@@ -97,7 +107,13 @@ function ReadinessTooltip({ active, payload }) {
   )
 }
 
-function GenderBreakdownBars({ male, female, unknown, total }) {
+const GENDER_CHART_COLORS = {
+  Male: '#4f46e5',
+  Female: '#9333ea',
+  'Other / not stated': '#c084fc',
+}
+
+function GenderBreakdownBars({ male, female, unknown, total, reducedMotion = false }) {
   const t = Number(total)
   if (!Number.isFinite(t) || t <= 0) {
     return <p className="text-xs text-slate-500">No gender-tagged staff in aggregate.</p>
@@ -107,33 +123,140 @@ function GenderBreakdownBars({ male, female, unknown, total }) {
     const num = Number.isFinite(v) ? v : 0
     return Math.round((num / t) * 1000) / 10
   }
+  const m = Number.isFinite(Number(male)) ? male : 0
+  const f = Number.isFinite(Number(female)) ? female : 0
+  const u = Number.isFinite(Number(unknown)) ? unknown : 0
   const rows = [
-    { label: 'Male', value: Number.isFinite(Number(male)) ? male : 0, pct: pct(male), gradId: 'gMale', from: '#6366f1', to: '#4f46e5' },
-    { label: 'Female', value: Number.isFinite(Number(female)) ? female : 0, pct: pct(female), gradId: 'gFemale', from: '#8b5cf6', to: '#6d28d9' },
-    { label: 'Other / not stated', value: Number.isFinite(Number(unknown)) ? unknown : 0, pct: pct(unknown), gradId: 'gUnk', from: '#a78bfa', to: '#7c3aed' },
+    {
+      key: 'male',
+      label: 'Male',
+      value: m,
+      pct: pct(m),
+      color: GENDER_CHART_COLORS.Male,
+      Icon: Mars,
+      iconClass: 'text-indigo-600',
+    },
+    {
+      key: 'female',
+      label: 'Female',
+      value: f,
+      pct: pct(f),
+      color: GENDER_CHART_COLORS.Female,
+      Icon: Venus,
+      iconClass: 'text-fuchsia-600',
+    },
+    {
+      key: 'other',
+      label: 'Other / not stated',
+      value: u,
+      pct: pct(u),
+      color: GENDER_CHART_COLORS['Other / not stated'],
+      Icon: CircleHelp,
+      iconClass: 'text-violet-500',
+    },
   ]
+  const pieData = rows
+    .filter((r) => r.value > 0)
+    .map((r) => ({ name: r.label, value: r.value, color: r.color }))
+
+  const genderTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const row = payload[0]?.payload ?? payload[0]
+    const name = row?.name
+    const value = row?.value
+    const p = t > 0 && Number.isFinite(value) ? Math.round((value / t) * 1000) / 10 : 0
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
+        <p className="font-semibold text-slate-900">{name}</p>
+        <p className="tabular-nums text-slate-600">
+          {value} ({p}%)
+        </p>
+      </div>
+    )
+  }
+
+  const displayPieData = pieData.length > 0 ? pieData : [{ name: 'No data', value: 1, color: '#e2e8f0' }]
+
   return (
-    <div className="space-y-2.5">
-      {rows.map((r) => (
-        <div key={r.label}>
-          <div className="mb-0.5 flex justify-between text-[11px] font-medium text-slate-600">
-            <span>{r.label}</span>
-            <span className="tabular-nums text-slate-800">
-              {r.value} <span className="text-slate-400 font-normal">({r.pct}%)</span>
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-100/80">
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${r.pct}%`,
-                background: `linear-gradient(90deg, ${r.from}, ${r.to})`,
-                boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.25)',
-              }}
-            />
-          </div>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-5">
+      <div className="relative h-[168px] w-[168px] shrink-0">
+        <ResponsiveContainer width="100%" height={168} minHeight={168} minWidth={0}>
+          <PieChart>
+            <Pie
+              data={displayPieData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={52}
+              outerRadius={76}
+              paddingAngle={pieData.length > 1 ? 2 : 0}
+              cornerRadius={4}
+              stroke="#fff"
+              strokeWidth={2}
+              isAnimationActive={!reducedMotion}
+              animationDuration={reducedMotion ? 0 : 520}
+              animationEasing="ease-out"
+            >
+              {displayPieData.map((entry, index) => (
+                <Cell key={`cell-${entry.name ?? index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip content={genderTooltip} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"
+          aria-hidden
+        >
+          <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{t}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Total staff</span>
         </div>
-      ))}
+      </div>
+
+      <div className="w-full min-w-0 flex-1 space-y-2">
+        {rows.map((r, i) => {
+          const RowIcon = r.Icon
+          return (
+          <motion.div
+            key={r.key}
+            initial={reducedMotion ? false : { opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              duration: 0.35,
+              ease: [0.22, 1, 0.36, 1],
+              delay: reducedMotion ? 0 : i * 0.06,
+            }}
+            className="flex items-center gap-3 rounded-xl border border-indigo-100/90 bg-white/80 px-3 py-2 shadow-sm ring-1 ring-indigo-50/80"
+          >
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 ${r.iconClass}`}
+              style={{ boxShadow: `inset 0 0 0 1px ${r.color}33` }}
+            >
+              <RowIcon className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-semibold text-slate-800">{r.label}</span>
+                <span className="shrink-0 text-[11px] tabular-nums text-slate-600">
+                  <span className="font-semibold text-slate-900">{r.value}</span>
+                  <span className="text-slate-400"> ({r.pct}%)</span>
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full rounded-full"
+                  initial={reducedMotion ? false : { width: 0 }}
+                  animate={{ width: `${r.pct}%` }}
+                  transition={{ duration: reducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1], delay: reducedMotion ? 0 : 0.12 + i * 0.05 }}
+                  style={{ backgroundColor: r.color }}
+                />
+              </div>
+            </div>
+          </motion.div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -410,7 +533,7 @@ function GovernanceCharts({
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
-              className="min-h-[11rem] w-full rounded-xl border-2 border-indigo-200/85 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-md ring-1 ring-indigo-100/60 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/15"
+              className="min-h-[13rem] w-full rounded-xl border-2 border-slate-200/90 border-l-4 border-l-violet-400 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-md ring-1 ring-indigo-100/60 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-violet-500/15"
             >
               <div className="mb-2 flex items-center gap-2 text-indigo-900">
                 <Users className="h-4 w-4 text-indigo-600" />
@@ -421,7 +544,7 @@ function GovernanceCharts({
               <AnimatePresence mode="wait">
                 <motion.div
                   key={hoveredUniversityId ?? 'province-avg'}
-                  className="min-h-[9rem]"
+                  className="min-h-[12rem]"
                   initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={reducedMotion ? false : { opacity: 0, y: -6 }}
@@ -440,6 +563,7 @@ function GovernanceCharts({
                         female={hoveredRow.staff_female}
                         unknown={hoveredRow.staff_unknown}
                         total={hoveredRow.staff_male + hoveredRow.staff_female + hoveredRow.staff_unknown}
+                        reducedMotion={reducedMotion}
                       />
                     </>
                   ) : (
@@ -457,6 +581,7 @@ function GovernanceCharts({
                         female={provinceGenderTotals.female}
                         unknown={provinceGenderTotals.unknown}
                         total={provinceGenderTotals.total}
+                        reducedMotion={reducedMotion}
                       />
                     </>
                   )}
@@ -697,7 +822,7 @@ function GovernanceCharts({
               >
                 {!overviewPairLayout && (
                   <div className="min-w-0 flex-1 max-w-lg">
-                    <div className="min-h-[11rem] rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-sm ring-1 ring-indigo-100/60">
+                    <div className="min-h-[13rem] rounded-xl border-2 border-slate-200/90 border-l-4 border-l-violet-400 bg-gradient-to-br from-indigo-50/90 via-violet-50/50 to-white p-4 shadow-md ring-1 ring-indigo-100/60 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-violet-500/15">
                       <div className="mb-2 flex items-center gap-2 text-indigo-900">
                         <Users className="h-4 w-4 text-indigo-600" />
                         <span className="text-xs font-bold uppercase tracking-wide text-indigo-800/90">
@@ -707,7 +832,7 @@ function GovernanceCharts({
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={hoveredUniversityId ?? 'province-avg'}
-                          className="min-h-[9rem]"
+                          className="min-h-[12rem]"
                           initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={reducedMotion ? false : { opacity: 0, y: -6 }}
@@ -726,6 +851,7 @@ function GovernanceCharts({
                                 female={hoveredRow.staff_female}
                                 unknown={hoveredRow.staff_unknown}
                                 total={hoveredRow.staff_male + hoveredRow.staff_female + hoveredRow.staff_unknown}
+                                reducedMotion={reducedMotion}
                               />
                             </>
                           ) : (
@@ -741,6 +867,7 @@ function GovernanceCharts({
                                 female={provinceGenderTotals.female}
                                 unknown={provinceGenderTotals.unknown}
                                 total={provinceGenderTotals.total}
+                                reducedMotion={reducedMotion}
                               />
                             </>
                           )}

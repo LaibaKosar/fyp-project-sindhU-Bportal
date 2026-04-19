@@ -45,11 +45,11 @@ const ComplianceChart = ({ filteredData, yAxisDomain, formatXAxisLabel, CustomTo
         fontSize={11}
         tickLine={false}
         domain={yAxisDomain}
-        label={{ 
-          value: 'Student-Teacher Ratio', 
-          angle: -90, 
+        label={{
+          value: 'Ratio (:1)',
+          angle: -90,
           position: 'insideLeft',
-          style: { textAnchor: 'middle', fill: '#94a3b8' }
+          style: { textAnchor: 'middle', fill: '#94a3b8' },
         }}
       />
       <Tooltip content={<CustomTooltip />} />
@@ -89,7 +89,7 @@ const ComplianceChart = ({ filteredData, yAxisDomain, formatXAxisLabel, CustomTo
       />
       <Bar
         dataKey="ratio"
-        name="Student-Teacher Ratio"
+        name="HEC ratio by department"
         radius={[8, 8, 0, 0]}
         legendType="square"
         barSize={60}
@@ -140,11 +140,11 @@ const ComplianceChart = ({ filteredData, yAxisDomain, formatXAxisLabel, CustomTo
         fontSize={11}
         tickLine={false}
         domain={yAxisDomain}
-        label={{ 
-          value: 'Student-Teacher Ratio', 
-          angle: -90, 
+        label={{
+          value: 'Ratio (:1)',
+          angle: -90,
           position: 'insideLeft',
-          style: { textAnchor: 'middle', fill: '#94a3b8' }
+          style: { textAnchor: 'middle', fill: '#94a3b8' },
         }}
       />
       <Tooltip content={<CustomTooltip />} />
@@ -184,7 +184,7 @@ const ComplianceChart = ({ filteredData, yAxisDomain, formatXAxisLabel, CustomTo
       />
       <Bar
         dataKey="ratio"
-        name="Student-Teacher Ratio"
+        name="HEC ratio by department"
         radius={[8, 8, 0, 0]}
         legendType="square"
         barSize={60}

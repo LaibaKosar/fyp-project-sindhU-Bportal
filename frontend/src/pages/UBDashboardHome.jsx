@@ -52,16 +52,16 @@ const DEMO_LANDING_ANALYTICS = {
   expired_boards: 3,
   total_staff: 450,
   top_universities: [
-    { name: 'University of Karachi', value: 18200 },
-    { name: 'University of Sindh, Jamshoro', value: 12500 },
-    { name: 'NED University of Engineering', value: 9800 },
-    { name: 'Mehran UET', value: 7200 },
-    { name: 'Sukkur IBA University', value: 6500 },
-    { name: 'Liaquat University of Medical', value: 5800 },
-    { name: 'Shah Abdul Latif University', value: 4200 },
-    { name: 'DOW University of Health', value: 3900 },
-    { name: 'Sindh Agriculture University', value: 3100 },
-    { name: 'Benazir Bhutto Shaheed Univ', value: 2600 }
+    { name: 'University of Karachi', value: 18200, maleStudents: 9828, femaleStudents: 8372 },
+    { name: 'University of Sindh, Jamshoro', value: 12500, maleStudents: 6813, femaleStudents: 5687 },
+    { name: 'NED University of Engineering', value: 9800, maleStudents: 5096, femaleStudents: 4704 },
+    { name: 'Mehran UET', value: 7200, maleStudents: 3816, femaleStudents: 3384 },
+    { name: 'Sukkur IBA University', value: 6500, maleStudents: 3380, femaleStudents: 3120 },
+    { name: 'Liaquat University of Medical', value: 5800, maleStudents: 2726, femaleStudents: 3074 },
+    { name: 'Shah Abdul Latif University', value: 4200, maleStudents: 2142, femaleStudents: 2058 },
+    { name: 'DOW University of Health', value: 3900, maleStudents: 2145, femaleStudents: 1755 },
+    { name: 'Sindh Agriculture University', value: 3100, maleStudents: 1736, femaleStudents: 1364 },
+    { name: 'Benazir Bhutto Shaheed Univ', value: 2600, maleStudents: 1404, femaleStudents: 1196 }
   ],
   enrollment_by_faculty_type: [
     { name: 'STEM', value: 52000 },
@@ -81,7 +81,7 @@ const DEMO_LANDING_ANALYTICS = {
 }
 
 export default function UBDashboardHome({ user, showToast }) {
-  const [demoMode, setDemoMode] = useState(false)
+  const [demoMode, setDemoMode] = useState(true)
   const [landingAnalytics, setLandingAnalytics] = useState({
     city_distribution: null,
     gender_data: null,
@@ -122,7 +122,6 @@ export default function UBDashboardHome({ user, showToast }) {
           hubRes,
           profilesRes,
           staffRes,
-          enrollmentRes,
           enrollmentWithFacultyRes,
           programsRes,
           universitiesRes
@@ -134,7 +133,6 @@ export default function UBDashboardHome({ user, showToast }) {
           supabase.from('ub_analytics_hub').select('university_id, expired_boards'),
           supabase.from('profiles').select('university_id').eq('role', 'UFP').not('university_id', 'is', null),
           supabase.from('staff').select('id', { count: 'exact', head: true }),
-          supabase.from('enrollment_reports').select('total_enrolled, university_id'),
           supabase.from('enrollment_reports').select('total_enrolled, program_id, programs(name, faculties(name))'),
           supabase.from('programs').select('id, name, university_id'),
           supabase.from('universities').select('id, name')
@@ -151,7 +149,7 @@ export default function UBDashboardHome({ user, showToast }) {
 
         const row = analyticsRes.data || {}
         console.log('Debug analytics row:', row)
-        const enrollmentList = enrollmentRes.data || []
+        const enrollmentList = studentsRes.data || []
         const byUni = {}
         enrollmentList.forEach((r) => {
           const uid = r.university_id

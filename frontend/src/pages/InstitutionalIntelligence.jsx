@@ -5,8 +5,84 @@ import ComplianceAnalytics from '../components/ComplianceAnalytics'
 import { 
   Search, Building2, Users, AlertTriangle, 
   ChevronRight, BarChart3, GraduationCap, MapPin,
-  Home, CheckCircle, X
+  Home, CheckCircle, X, UserMinus
 } from 'lucide-react'
+
+/** Staffing shortfall severity from FTE gap (additional teachers needed). */
+function staffingGapSeverity(gap) {
+  if (gap >= 15) return 'high'
+  if (gap >= 5) return 'medium'
+  return 'low'
+}
+
+function StaffingGapRow({ row }) {
+  const {
+    name,
+    gap,
+    threshold,
+    currentRatio,
+    currentTeachers,
+    requiredTeachers,
+    ceilingLabel,
+    severity,
+  } = row
+  const rail =
+    severity === 'high' ? 'bg-red-500' : severity === 'medium' ? 'bg-amber-500' : 'bg-orange-400'
+  const cardBorder =
+    severity === 'high'
+      ? 'border-red-500/35'
+      : severity === 'medium'
+        ? 'border-amber-500/35'
+        : 'border-orange-400/35'
+
+  return (
+    <div
+      className={`flex overflow-hidden rounded-xl border ${cardBorder} bg-white/[0.06]`}
+      role="status"
+      aria-label={`${name}: above HEC ceiling, shortfall ${gap} teaching posts`}
+    >
+      <div className={`w-1 shrink-0 ${rail}`} aria-hidden />
+      <div className="min-w-0 flex-1 p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <AlertTriangle
+              className={`h-4 w-4 shrink-0 ${severity === 'high' ? 'text-red-400' : severity === 'medium' ? 'text-amber-400' : 'text-orange-300'}`}
+              aria-hidden
+            />
+            <span className="truncate text-sm font-semibold text-white">{name}</span>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-200">
+            <UserMinus className="h-3 w-3" aria-hidden />
+            Understaffed
+          </span>
+        </div>
+        <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] tabular-nums sm:grid-cols-4">
+          <div>
+            <div className="text-slate-500">Current STR</div>
+            <div className="font-semibold text-white">{Number(currentRatio).toFixed(1)}:1</div>
+          </div>
+          <div>
+            <div className="text-slate-500">Ceiling</div>
+            <div className="font-semibold text-slate-200">{threshold}:1</div>
+          </div>
+          <div>
+            <div className="text-slate-500">Teaching staff</div>
+            <div className="font-semibold text-slate-200">{currentTeachers}</div>
+          </div>
+          <div>
+            <div className="text-slate-500">Shortfall</div>
+            <div className="font-bold text-red-400">+{gap} teacher{gap !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+          <span className="text-slate-400">{ceilingLabel}.</span>{' '}
+          Need <span className="font-semibold text-slate-300">{requiredTeachers}</span> teaching posts
+          at {threshold}:1 for current enrollment vs <span className="font-semibold text-slate-300">{currentTeachers}</span> now.
+        </p>
+      </div>
+    </div>
+  )
+}
 
 const InstitutionalIntelligence = () => {
   // View mode state
@@ -28,8 +104,9 @@ const InstitutionalIntelligence = () => {
   
   // Presentation Mode state
   const [isPresentationMode, setIsPresentationMode] = useState(() => {
-    // Initialize from sessionStorage if available
-    return sessionStorage.getItem('presentationMode') === 'true'
+    const stored = sessionStorage.getItem('presentationMode')
+    if (stored === null) return true
+    return stored === 'true'
   })
 
   useEffect(() => {
@@ -357,18 +434,31 @@ const InstitutionalIntelligence = () => {
   const violationCount = violations.length
   const isCompliant = violationCount === 0
 
-  // Calculate staffing gaps for violating departments
-  const staffingGaps = violations.map(dept => {
-    if (dept.total_students === 0 || dept.ratio === 0) return null
-    const requiredTeachers = Math.ceil(dept.total_students / dept.threshold)
-    const currentTeachers = dept.teachers
-    const gap = requiredTeachers - currentTeachers
-    return {
-      name: dept.name,
-      gap: gap > 0 ? gap : 0,
-      threshold: dept.threshold
-    }
-  }).filter(gap => gap !== null && gap.gap > 0)
+  // Calculate staffing gaps for violating departments (sorted worst-first for scanability)
+  const staffingGaps = violations
+    .map((dept) => {
+      if (dept.total_students === 0 || dept.ratio === 0) return null
+      const requiredTeachers = Math.ceil(dept.total_students / dept.threshold)
+      const currentTeachers = dept.teachers
+      const gap = requiredTeachers - currentTeachers
+      if (gap <= 0) return null
+      const ceilingLabel =
+        dept.threshold === 20 ? 'Science max 20:1' : 'Social sciences max 30:1'
+      return {
+        name: dept.name,
+        gap,
+        threshold: dept.threshold,
+        currentRatio: dept.ratio,
+        currentTeachers,
+        requiredTeachers,
+        ceilingLabel,
+        severity: staffingGapSeverity(gap),
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.gap - a.gap)
+
+  const compliantDepartmentCount = chartData.length - violationCount
 
   // Filter staff based on search and filter
   const filteredStaff = displayDetails.staff.filter(member => {
@@ -655,9 +745,14 @@ const InstitutionalIntelligence = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Student-Teacher Ratio Summary */}
           <div className="lg:col-span-2 bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 flex flex-col">
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <AlertTriangle className="text-amber-400 w-5 h-5" /> HEC Student-Teacher Ratio
+            <h3 className="mb-2 flex items-center gap-2 text-lg font-bold">
+              <AlertTriangle className="h-5 w-5 text-amber-400" aria-hidden />
+              HEC student–teacher ratio by department
             </h3>
+            <p className="mb-6 text-xs leading-relaxed text-slate-400">
+              Each bar is one department. Values show the current ratio against the applicable HEC ceiling (Science 20:1,
+              Social Sciences 30:1).
+            </p>
             <div className="flex-1 min-h-[500px]">
               <ComplianceAnalytics 
                 chartData={chartData}
@@ -702,17 +797,34 @@ const InstitutionalIntelligence = () => {
             {/* Staffing Gaps */}
             {staffingGaps.length > 0 && (
               <div className="space-y-3">
-                <div className="text-xs text-slate-500 uppercase mb-2">Staffing Gap Analysis</div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {staffingGaps.map((gap, index) => (
-                    <div key={index} className="p-3 bg-white/5 rounded-lg border border-white/5">
-                      <div className="text-sm font-semibold text-white mb-1">{gap.name}</div>
-                      <div className="text-xs text-slate-400">
-                        Requires <span className="font-bold text-red-400">{gap.gap}</span> more teacher{gap.gap !== 1 ? 's' : ''} to hit {gap.threshold}:1 target
-                      </div>
-                    </div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Staffing Gap Analysis
+                </div>
+                {selectedUni && selectedCampus && (
+                  <p className="text-[11px] leading-snug text-slate-400 line-clamp-2">
+                    <span className="text-slate-500">Showing departments for</span>{' '}
+                    <span className="font-medium text-slate-300">{selectedCampus.name}</span>
+                    <span className="text-slate-600"> · </span>
+                    <span className="font-medium text-slate-300">{selectedUni.name}</span>
+                  </p>
+                )}
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-0.5">
+                  {staffingGaps.map((row, index) => (
+                    <StaffingGapRow key={`${row.name}-${row.gap}-${index}`} row={row} />
                   ))}
                 </div>
+                {compliantDepartmentCount > 0 && (
+                  <div className="flex items-start gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+                    <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+                    <div className="min-w-0 text-[11px] leading-relaxed text-emerald-200/90">
+                      <span className="font-semibold text-emerald-100">
+                        {compliantDepartmentCount} department{compliantDepartmentCount !== 1 ? 's' : ''}
+                      </span>{' '}
+                      still meet the applicable HEC student–teacher ceiling in this view (not listed in the gap list
+                      above).
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
