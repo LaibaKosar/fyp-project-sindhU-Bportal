@@ -176,7 +176,7 @@ function CampusDetailView() {
 
       const { data: deptRows, error: deptError } = await supabase
         .from('departments')
-        .select('id, name, code, faculty_id')
+        .select('id, name, code, faculty_id, head_of_department')
         .eq('university_id', user.university_id)
         .eq('campus_id', id)
         .in('faculty_id', facultyIds)
@@ -344,7 +344,7 @@ function CampusDetailView() {
             type="department"
             name={dept.name}
             code={dept.code}
-            focalPerson={dept.focal_person_name}
+            focalPerson={dept.head_of_department}
             isExpandable={deptPrograms.length > 0}
             isExpanded={isDeptExpanded}
             onToggle={deptPrograms.length ? () => toggleDepartment(dept.id) : undefined}
@@ -535,7 +535,7 @@ function CampusDetailView() {
           <div className="flex items-center border-b-2 border-blue-200/70 bg-gradient-to-r from-blue-50/95 via-sky-50/90 to-blue-50/95 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
             <div className="flex-1 px-3 py-2">Name / Hierarchy</div>
             <div className="w-52 px-3 py-2">Code / Type</div>
-            <div className="w-64 px-3 py-2">Focal / Status</div>
+            <div className="w-[17.5rem] shrink-0 px-3 py-2">Focal / Status</div>
           </div>
 
           {/* Body */}

@@ -18,21 +18,7 @@ export function UfpAdminShell({ children, className = '' }) {
 }
 
 /**
- * Centered content column (max width) — faculty/campus list pages.
- */
-export function UfpAdminContainer({ children, className = '' }) {
-  return (
-    <div
-      className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10 ${className}`.trim()}
-    >
-      {children}
-    </div>
-  )
-}
-
-/**
- * Full-width dashboard body (Report Archive / Campus Management style): left-aligned content,
- * horizontal padding only — no page-level max-width or mx-auto column.
+ * Full-width UFP admin body: left-aligned content, horizontal padding only (no max-width column).
  */
 export function UfpAdminPageWide({ children, className = '' }) {
   return (
@@ -40,6 +26,13 @@ export function UfpAdminPageWide({ children, className = '' }) {
       {children}
     </div>
   )
+}
+
+/**
+ * Same layout as {@link UfpAdminPageWide} — kept for existing imports (campus/faculty/detail flows).
+ */
+export function UfpAdminContainer({ children, className = '' }) {
+  return <UfpAdminPageWide className={className}>{children}</UfpAdminPageWide>
 }
 
 export function UfpAdminLoadingCenter() {
