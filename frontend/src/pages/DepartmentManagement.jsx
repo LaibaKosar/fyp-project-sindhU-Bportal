@@ -21,6 +21,13 @@ import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
 import { DEPARTMENT_MAPPING, generateDepartmentCode } from '../data/departmentFormPresets'
+import { normalizeEmail, normalizePhone, normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateEmailField,
+  validatePhoneField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 function DepartmentManagement() {
   const navigate = useNavigate()
@@ -33,10 +40,12 @@ function DepartmentManagement() {
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
   const [departments, setDepartments] = useState([])
+  const [campuses, setCampuses] = useState([])
   const [faculties, setFaculties] = useState([])
   const [toast, setToast] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [campusName, setCampusName] = useState(null)
+  const [selectedCampusId, setSelectedCampusId] = useState(campusId || '')
 
   // Form state (facultyId pre-filled from URL when opening from Faculty Detail)
   const [departmentName, setDepartmentName] = useState('')
@@ -67,12 +76,26 @@ function DepartmentManagement() {
   useEffect(() => {
     if (user?.university_id) {
       if (campusId) {
-        fetchFaculties()
-        fetchCampusName()
+        setSelectedCampusId(campusId)
+        fetchFaculties(campusId)
+        fetchCampusName(campusId)
+      } else {
+        fetchCampuses()
       }
       fetchDepartments()
     }
   }, [user, campusId, facultyIdParam])
+
+  useEffect(() => {
+    if (campusId) return
+    if (!user?.university_id || !selectedCampusId) {
+      setFaculties([])
+      return
+    }
+    fetchCampusName(selectedCampusId)
+    fetchFaculties(selectedCampusId)
+    setFacultyId('')
+  }, [selectedCampusId, user?.university_id, campusId])
 
   // When opened from Faculty Detail, open add form directly with faculty locked
   useEffect(() => {
@@ -162,15 +185,38 @@ function DepartmentManagement() {
     }
   }
 
-  const fetchFaculties = async () => {
-    if (!user?.university_id || !campusId) return
+  const fetchCampuses = async () => {
+    if (!user?.university_id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('campuses')
+        .select('id, name')
+        .eq('university_id', user.university_id)
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching campuses:', error)
+        showToast('Error loading campuses: ' + error.message, 'error')
+        return
+      }
+
+      setCampuses(data || [])
+    } catch (error) {
+      console.error('Error in fetchCampuses:', error)
+      showToast('Error loading campuses: ' + error.message, 'error')
+    }
+  }
+
+  const fetchFaculties = async (targetCampusId = selectedCampusId || campusId) => {
+    if (!user?.university_id || !targetCampusId) return
 
     try {
       const { data, error } = await supabase
         .from('faculties')
         .select('*')
         .eq('university_id', user.university_id)
-        .eq('campus_id', campusId)
+        .eq('campus_id', targetCampusId)
         .order('name', { ascending: true })
 
       if (error) {
@@ -205,9 +251,10 @@ function DepartmentManagement() {
         `)
         .eq('university_id', user.university_id)
       
-      // If campusId is present, filter by it. Otherwise, show all departments (global view)
-      if (campusId) {
-        query = query.eq('campus_id', campusId)
+      // In campus-specific mode lock to route campus; otherwise use selected campus if user picked one.
+      const activeCampusId = campusId || selectedCampusId
+      if (activeCampusId) {
+        query = query.eq('campus_id', activeCampusId)
       }
       // When opened from Faculty Detail, show only that faculty's departments
       if (facultyIdParam) {
@@ -229,14 +276,14 @@ function DepartmentManagement() {
     }
   }
 
-  const fetchCampusName = async () => {
-    if (!campusId || !user?.university_id) return
+  const fetchCampusName = async (targetCampusId = selectedCampusId || campusId) => {
+    if (!targetCampusId || !user?.university_id) return
 
     try {
       const { data, error } = await supabase
         .from('campuses')
         .select('name')
-        .eq('id', campusId)
+        .eq('id', targetCampusId)
         .eq('university_id', user.university_id)
         .single()
 
@@ -408,7 +455,7 @@ function DepartmentManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!user?.university_id || !campusId) {
+    if (!user?.university_id || !selectedCampusId) {
       showToast('University ID or Campus ID not found. Please log in again.', 'error')
       return
     }
@@ -440,33 +487,42 @@ function DepartmentManagement() {
       }
     }
 
-    if (!finalDepartmentName) {
+    const normalizedDepartmentName = normalizeText(finalDepartmentName)
+    if (!normalizedDepartmentName) {
       showToast('Please select or enter department name', 'error')
       return
     }
-    
-    if (!departmentCode) {
+
+    if (normalizedDepartmentName.length > FIELD_LIMITS.name) {
+      showToast(`Department name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
+      return
+    }
+
+    const normalizedDepartmentCode = normalizeText(departmentCode).toUpperCase()
+    if (!normalizedDepartmentCode) {
       showToast('Please enter department code', 'error')
       return
     }
-    if (!hodName) {
-      showToast('Please enter Head of Department name', 'error')
+    if (normalizedDepartmentCode.length > FIELD_LIMITS.shortCode) {
+      showToast(`Department code is too long (max ${FIELD_LIMITS.shortCode} characters)`, 'error')
       return
     }
-    if (!hodEmail) {
-      showToast('Please enter HoD email address', 'error')
-      return
+
+    const normalizedHodName = normalizeText(hodName)
+    const normalizedHodEmail = normalizeEmail(hodEmail)
+    const normalizedHodPhone = normalizePhone(hodPhone)
+
+    const hodNameError = validateRequiredField(normalizedHodName, 'Head of Department name')
+    if (hodNameError) return showToast(hodNameError, 'error')
+    if (normalizedHodName.length > FIELD_LIMITS.name) {
+      return showToast(`HoD name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(hodEmail)) {
-      showToast('Please enter a valid email address', 'error')
-      return
-    }
-    if (!hodPhone) {
-      showToast('Please enter HoD phone number', 'error')
-      return
-    }
+
+    const hodEmailError = validateEmailField(normalizedHodEmail)
+    if (hodEmailError) return showToast(hodEmailError, 'error')
+
+    const hodPhoneError = validatePhoneField(normalizedHodPhone)
+    if (hodPhoneError) return showToast(hodPhoneError, 'error')
 
     setSaving(true)
 
@@ -489,13 +545,13 @@ function DepartmentManagement() {
         .from('departments')
         .insert({
           university_id: user.university_id,
-          campus_id: campusId,
+          campus_id: selectedCampusId,
           faculty_id: facultyId,
-          name: finalDepartmentName,
-          code: departmentCode,
-          head_of_department: hodName || null,
-          hod_email: hodEmail || null,
-          hod_phone: hodPhone || null,
+          name: normalizedDepartmentName,
+          code: normalizedDepartmentCode,
+          head_of_department: normalizedHodName || null,
+          hod_email: normalizedHodEmail || null,
+          hod_phone: normalizedHodPhone || null,
           hod_photo_url: publicUrl,
           hod_appointment_letter_url: appointmentLetterUrl || null,
           status: status || null
@@ -516,7 +572,7 @@ function DepartmentManagement() {
         await recordSystemLog({
           universityId: user.university_id,
           actionType: 'DEPARTMENT_ADDED',
-          details: `Added department: ${finalDepartmentName} under ${facultyLabel}${campusName ? ` — ${campusName}` : ''}`,
+          details: `Added department: ${normalizedDepartmentName} under ${facultyLabel}${campusName ? ` — ${campusName}` : ''}`,
         })
 
         const navigateFacultyId = facultyId
@@ -582,11 +638,10 @@ function DepartmentManagement() {
 
     try {
       const departmentToDelete = departments.find((dept) => dept.id === id)
-      const { error } = await supabase
-        .from('departments')
-        .delete()
-        .eq('id', id)
-
+      // Use server-side cascade RPC so deletes are reliable even with child rows.
+      const { error } = await supabase.rpc('delete_department_cascade', {
+        target_dept_id: id
+      })
       if (error) {
         throw new Error('Failed to delete department: ' + error.message)
       }
@@ -597,8 +652,9 @@ function DepartmentManagement() {
         details: `Deleted department: ${departmentToDelete?.name || 'Unnamed department'}`,
       })
 
+      setDepartments((prev) => prev.filter((dept) => dept.id !== id))
       await fetchDepartments()
-      showToast('Department deleted successfully!', 'success')
+      showToast('Department and related records deleted successfully!', 'success')
     } catch (error) {
       console.error('Error deleting department:', error)
       showToast(error.message || 'Error deleting department', 'error')
@@ -832,7 +888,25 @@ function DepartmentManagement() {
 
                 {/* Modal Content */}
                 <div className="p-6">
-                  {faculties.length === 0 ? (
+                  {!selectedCampusId ? (
+                    <div className="text-center py-8">
+                      <MapPin className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                      <h4 className="text-lg font-semibold text-slate-900 mb-2">Select Campus First</h4>
+                      <p className="text-slate-600 mb-4">Choose a campus to load its faculties and add departments correctly.</p>
+                      <select
+                        value={selectedCampusId}
+                        onChange={(e) => setSelectedCampusId(e.target.value)}
+                        className="mx-auto w-full max-w-sm px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                      >
+                        <option value="">Select Campus</option>
+                        {campuses.map((campusOption) => (
+                          <option key={campusOption.id} value={campusOption.id}>
+                            {campusOption.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : faculties.length === 0 ? (
                     <div className="text-center py-8">
                       <GraduationCap className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                       <h4 className="text-lg font-semibold text-slate-900 mb-2">No Faculties Found</h4>
@@ -840,7 +914,7 @@ function DepartmentManagement() {
                       <button
                         onClick={() => {
                           setShowForm(false)
-                          navigate(`/ufp/faculties?campusId=${campusId}`)
+                          navigate(`/ufp/faculties?campusId=${selectedCampusId}`)
                         }}
                         className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
                       >
@@ -849,6 +923,28 @@ function DepartmentManagement() {
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-5">
+                      {/* Campus dropdown (global quick action) */}
+                      {!campusId && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-2">
+                            Campus <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={selectedCampusId}
+                            onChange={(e) => setSelectedCampusId(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                            required
+                          >
+                            <option value="">Select Campus</option>
+                            {campuses.map((campusOption) => (
+                              <option key={campusOption.id} value={campusOption.id}>
+                                {campusOption.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
                       {/* Faculty Dropdown */}
                       <div>
                         <label className="block text-sm font-medium text-slate-900 mb-2">
@@ -897,6 +993,7 @@ function DepartmentManagement() {
                               value={customDepartmentName}
                               onChange={(e) => setCustomDepartmentName(e.target.value)}
                               placeholder="e.g., Department of Islamic Studies"
+                              maxLength={120}
                               className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                               required
                             />
@@ -930,6 +1027,7 @@ function DepartmentManagement() {
                             value={customDepartmentName}
                             onChange={(e) => setCustomDepartmentName(e.target.value)}
                             placeholder="Enter custom department name"
+                            maxLength={120}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                             required
                           />
@@ -946,6 +1044,7 @@ function DepartmentManagement() {
                           value={departmentCode}
                           onChange={(e) => setDepartmentCode(e.target.value.toUpperCase())}
                           placeholder="e.g., CS"
+                          maxLength={20}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -961,6 +1060,7 @@ function DepartmentManagement() {
                           value={hodName}
                           onChange={(e) => setHodName(e.target.value)}
                           placeholder="Enter HoD's full name"
+                          maxLength={120}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -976,6 +1076,7 @@ function DepartmentManagement() {
                           value={hodEmail}
                           onChange={(e) => setHodEmail(e.target.value)}
                           placeholder="hod@university.edu.pk"
+                          maxLength={120}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -991,6 +1092,9 @@ function DepartmentManagement() {
                           value={hodPhone}
                           onChange={(e) => setHodPhone(e.target.value)}
                           placeholder="+92-XXX-XXXXXXX"
+                          inputMode="tel"
+                          pattern="[0-9+\-() ]{10,30}"
+                          maxLength={30}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />

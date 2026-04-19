@@ -17,6 +17,13 @@ import {
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeEmail, normalizePhone, normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateEmailField,
+  validatePhoneField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 // Academic Designations for Teaching Staff
 const ACADEMIC_DESIGNATIONS = [
@@ -37,6 +44,8 @@ const ADMINISTRATIVE_ROLES = [
   'Chairperson',
   'Program Coordinator'
 ]
+const OTHER_TEACHING_DESIGNATION_OPTION = '__OTHER_TEACHING_DESIGNATION__'
+const OTHER_ADMIN_ROLE_OPTION = '__OTHER_ADMIN_ROLE__'
 
 // Categories for Non-Teaching Staff (dropdown presets; "Other" uses separate text field)
 const NON_TEACHING_CATEGORIES = [
@@ -133,7 +142,9 @@ function StaffManagement() {
   const [facultyId, setFacultyId] = useState(returnTo === 'department' && returnFacultyId ? returnFacultyId : '')
   const [departmentId, setDepartmentId] = useState(departmentIdParam || '')
   const [academicDesignation, setAcademicDesignation] = useState(academicDesignationParam || '')
+  const [academicDesignationCustom, setAcademicDesignationCustom] = useState('')
   const [administrativeRole, setAdministrativeRole] = useState(administrativeRoleParam || 'No Additional Role')
+  const [administrativeRoleCustom, setAdministrativeRoleCustom] = useState('')
   const [qualification, setQualification] = useState('')
   const [specialization, setSpecialization] = useState('')
   
@@ -175,21 +186,20 @@ function StaffManagement() {
     if (staffType === 'Teaching') {
       fetchFaculties()
       if (!departmentIdParam) {
+        // Reset only when campus/type context changes, not on faculty selection.
         setFacultyId('')
         setDepartmentId('')
         setDepartments([])
       }
     } else if (staffType === 'Non-Teaching') {
       fetchFaculties()
-      if (!facultyId) {
-        setDepartments([])
-        setDepartmentId('')
-      }
+      setDepartments([])
+      setDepartmentId('')
     } else {
       setFaculties([])
       setDepartments([])
     }
-  }, [selectedCampusId, staffType, departmentIdParam, facultyId])
+  }, [selectedCampusId, staffType, departmentIdParam])
 
   // When opened from Department Detail with departmentId, fetch department and lock Faculty/Department
   useEffect(() => {
@@ -479,9 +489,25 @@ function StaffManagement() {
       return
     }
 
-    if (!fullName || !email || !phone) {
-      showToast('Please fill in all required fields', 'error')
-      return
+    const normalizedFullName = normalizeText(fullName)
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedPhone = normalizePhone(phone)
+    const normalizedCnic = normalizeText(cnic)
+
+    const fullNameError = validateRequiredField(normalizedFullName, 'full name')
+    if (fullNameError) return showToast(fullNameError, 'error')
+    if (normalizedFullName.length > FIELD_LIMITS.name) {
+      return showToast(`Full name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
+    }
+
+    const emailError = validateEmailField(normalizedEmail)
+    if (emailError) return showToast(emailError, 'error')
+
+    const phoneError = validatePhoneField(normalizedPhone)
+    if (phoneError) return showToast(phoneError, 'error')
+
+    if (normalizedCnic && !/^\d{5}-\d{7}-\d$/.test(normalizedCnic)) {
+      return showToast('Please enter CNIC in format 12345-1234567-1', 'error')
     }
 
     if (!gender || !GENDER_OPTIONS.includes(gender)) {
@@ -523,20 +549,36 @@ function StaffManagement() {
         university_id: user.university_id,
         campus_id: selectedCampusId,
         type: staffType,
-        full_name: fullName,
-        email: email,
-        phone: phone,
+        full_name: normalizedFullName,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         gender,
-        cnic: cnic || null,
+        cnic: normalizedCnic || null,
         employment_type: employmentType,
         profile_photo_url: publicUrl
       }
 
       if (staffType === 'Teaching') {
+        const finalAcademicDesignation =
+          academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION
+            ? normalizeText(academicDesignationCustom)
+            : academicDesignation
+        const finalAdministrativeRole =
+          administrativeRole === OTHER_ADMIN_ROLE_OPTION
+            ? normalizeText(administrativeRoleCustom)
+            : administrativeRole
+        if (academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION && !finalAcademicDesignation) {
+          showToast('Please enter a custom academic designation', 'error')
+          return
+        }
+        if (administrativeRole === OTHER_ADMIN_ROLE_OPTION && !finalAdministrativeRole) {
+          showToast('Please enter a custom administrative role', 'error')
+          return
+        }
         staffData.faculty_id = facultyId
         staffData.department_id = departmentId
-        staffData.academic_designation = academicDesignation
-        staffData.administrative_role = administrativeRole
+        staffData.academic_designation = finalAcademicDesignation
+        staffData.administrative_role = finalAdministrativeRole
         staffData.qualification = qualification || null
         staffData.specialization = specialization || null
       } else {
@@ -567,7 +609,7 @@ function StaffManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'STAFF_UPDATED',
-        details: `Registered ${staffType.toLowerCase()} staff: ${fullName}`,
+        details: `Registered ${staffType.toLowerCase()} staff: ${normalizedFullName}`,
       })
 
       showToast('Staff member added successfully!', 'success')
@@ -584,7 +626,9 @@ function StaffManagement() {
       setFacultyId('')
       setDepartmentId('')
       setAcademicDesignation('')
+      setAcademicDesignationCustom('')
       setAdministrativeRole('No Additional Role')
+      setAdministrativeRoleCustom('')
       setQualification('')
       setSpecialization('')
       setCategory('')
@@ -943,6 +987,7 @@ function StaffManagement() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Enter full name"
+                        maxLength={120}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -958,6 +1003,7 @@ function StaffManagement() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="Enter email"
+                          maxLength={120}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -971,6 +1017,9 @@ function StaffManagement() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Enter phone number"
+                          inputMode="tel"
+                          pattern="[0-9+\-() ]{10,30}"
+                          maxLength={30}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -1005,6 +1054,9 @@ function StaffManagement() {
                           value={cnic}
                           onChange={(e) => setCnic(e.target.value)}
                           placeholder="Enter CNIC"
+                          inputMode="numeric"
+                          pattern="[0-9]{5}-[0-9]{7}-[0-9]{1}"
+                          maxLength={15}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         />
                       </div>
@@ -1116,7 +1168,12 @@ function StaffManagement() {
                           </label>
                           <select
                             value={academicDesignation}
-                            onChange={(e) => setAcademicDesignation(e.target.value)}
+                            onChange={(e) => {
+                              setAcademicDesignation(e.target.value)
+                              if (e.target.value !== OTHER_TEACHING_DESIGNATION_OPTION) {
+                                setAcademicDesignationCustom('')
+                              }
+                            }}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                             required
                           >
@@ -1126,7 +1183,19 @@ function StaffManagement() {
                                 {designation}
                               </option>
                             ))}
+                            <option value={OTHER_TEACHING_DESIGNATION_OPTION}>Other (custom)</option>
                           </select>
+                          {academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION && (
+                            <input
+                              type="text"
+                              value={academicDesignationCustom}
+                              onChange={(e) => setAcademicDesignationCustom(e.target.value)}
+                              placeholder="Enter custom academic designation"
+                              maxLength={120}
+                              className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                              required
+                            />
+                          )}
                         </div>
 
                         <div>
@@ -1135,7 +1204,12 @@ function StaffManagement() {
                           </label>
                           <select
                             value={administrativeRole}
-                            onChange={(e) => setAdministrativeRole(e.target.value)}
+                            onChange={(e) => {
+                              setAdministrativeRole(e.target.value)
+                              if (e.target.value !== OTHER_ADMIN_ROLE_OPTION) {
+                                setAdministrativeRoleCustom('')
+                              }
+                            }}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           >
                             {ADMINISTRATIVE_ROLES.map((role) => (
@@ -1143,7 +1217,19 @@ function StaffManagement() {
                                 {role}
                               </option>
                             ))}
+                            <option value={OTHER_ADMIN_ROLE_OPTION}>Other (custom)</option>
                           </select>
+                          {administrativeRole === OTHER_ADMIN_ROLE_OPTION && (
+                            <input
+                              type="text"
+                              value={administrativeRoleCustom}
+                              onChange={(e) => setAdministrativeRoleCustom(e.target.value)}
+                              placeholder="Enter custom administrative role"
+                              maxLength={120}
+                              className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                              required
+                            />
+                          )}
                         </div>
 
                         <div>
@@ -1155,6 +1241,7 @@ function StaffManagement() {
                             value={qualification}
                             onChange={(e) => setQualification(e.target.value)}
                             placeholder="e.g. PhD, MS"
+                            maxLength={120}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           />
                         </div>
@@ -1168,6 +1255,7 @@ function StaffManagement() {
                             value={specialization}
                             onChange={(e) => setSpecialization(e.target.value)}
                             placeholder="e.g. Machine Learning"
+                            maxLength={120}
                             className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           />
                         </div>

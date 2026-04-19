@@ -14,6 +14,8 @@ import EnrollmentReportCard from '../components/EnrollmentReportCard'
 import EnrollmentReportDetailModal from '../components/EnrollmentReportDetailModal'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { isValidFiscalYearLabel, toInteger } from '../utils/validation/commonValidators'
+import { validateRequiredField } from '../utils/validation/formRules'
 
 // Academic Years (2024-2030)
 const ACADEMIC_YEARS = [
@@ -228,10 +230,18 @@ function StudentEnrollment() {
       return
     }
 
-    if (!maleStudents || !femaleStudents) {
-      showToast('Please enter male and female student counts', 'error')
-      return
+    const yearError = validateRequiredField(academicYear, 'academic year')
+    if (yearError) return showToast(yearError, 'error')
+    if (!isValidFiscalYearLabel(academicYear)) {
+      return showToast('Please use a valid academic year like 2025-2026', 'error')
     }
+
+    const maleCount = toInteger(maleStudents)
+    const femaleCount = toInteger(femaleStudents)
+    const newAdmissionsCount = toInteger(newAdmissions || '0')
+    if (maleCount === null || maleCount < 0) return showToast('Please enter valid male student count', 'error')
+    if (femaleCount === null || femaleCount < 0) return showToast('Please enter valid female student count', 'error')
+    if (newAdmissionsCount === null || newAdmissionsCount < 0) return showToast('Please enter valid new admissions count', 'error')
 
     setSaving(true)
 
@@ -242,9 +252,9 @@ function StudentEnrollment() {
         program_id: programId,
         academic_year: academicYear,
         semester: semester,
-        male_students: parseInt(maleStudents) || 0,
-        female_students: parseInt(femaleStudents) || 0,
-        new_admissions: parseInt(newAdmissions) || 0
+        male_students: maleCount,
+        female_students: femaleCount,
+        new_admissions: newAdmissionsCount
       }
 
       const { data, error } = await supabase
@@ -590,6 +600,7 @@ function StudentEnrollment() {
                           onChange={(e) => setMaleStudents(e.target.value)}
                           placeholder="0"
                           min="0"
+                          max="1000000"
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -604,6 +615,7 @@ function StudentEnrollment() {
                           onChange={(e) => setFemaleStudents(e.target.value)}
                           placeholder="0"
                           min="0"
+                          max="1000000"
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -618,6 +630,7 @@ function StudentEnrollment() {
                           onChange={(e) => setNewAdmissions(e.target.value)}
                           placeholder="0"
                           min="0"
+                          max="1000000"
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         />
                       </div>

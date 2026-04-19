@@ -17,6 +17,8 @@ import {
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText } from '../utils/validation/commonValidators'
+import { FIELD_LIMITS, validateFiscalYearField, validateRequiredField } from '../utils/validation/formRules'
 
 // Report Types
 const REPORT_TYPES = [
@@ -230,16 +232,33 @@ function ReportArchive() {
       return
     }
 
+    const normalizedTitle = normalizeText(title)
     const resolvedReportType =
-      reportTypeSelect === 'Other' ? customReportType.trim() : reportTypeSelect.trim()
-    const resolvedFiscalYear = fiscalYear.trim()
+      reportTypeSelect === 'Other' ? normalizeText(customReportType) : normalizeText(reportTypeSelect)
+    const resolvedFiscalYear = normalizeText(fiscalYear)
 
-    if (reportTypeSelect === 'Other' && !customReportType.trim()) {
+    if (reportTypeSelect === 'Other' && !resolvedReportType) {
       showToast('Please enter a report type when "Other" is selected', 'error')
       return
     }
 
-    if (!title || !resolvedReportType || !resolvedFiscalYear || !reportFile) {
+    const titleError = validateRequiredField(normalizedTitle, 'report title')
+    if (titleError) return showToast(titleError, 'error')
+    if (normalizedTitle.length > FIELD_LIMITS.title) {
+      return showToast(`Report title is too long (max ${FIELD_LIMITS.title} characters)`, 'error')
+    }
+
+    if (!resolvedReportType) {
+      return showToast('Please select report type', 'error')
+    }
+    if (resolvedReportType.length > FIELD_LIMITS.name) {
+      return showToast(`Report type is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
+    }
+
+    const fiscalYearError = validateFiscalYearField(resolvedFiscalYear)
+    if (fiscalYearError) return showToast(fiscalYearError, 'error')
+
+    if (!reportFile) {
       showToast('Please fill in all required fields and select a PDF file', 'error')
       return
     }
@@ -256,7 +275,7 @@ function ReportArchive() {
 
       const reportData = {
         university_id: user.university_id,
-        title: title,
+        title: normalizedTitle,
         report_type: resolvedReportType,
         fiscal_year: resolvedFiscalYear,
         file_url: reportUrl,
@@ -272,7 +291,7 @@ function ReportArchive() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'REPORT_SUBMITTED',
-        details: `Submitted report: ${title} (${resolvedReportType}, ${resolvedFiscalYear}).`,
+        details: `Submitted report: ${normalizedTitle} (${resolvedReportType}, ${resolvedFiscalYear}).`,
       })
 
       showToast('Report uploaded successfully!', 'success')
@@ -554,6 +573,7 @@ function ReportArchive() {
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="e.g., Annual Financial Audit 2024-2025"
+                        maxLength={180}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -588,6 +608,7 @@ function ReportArchive() {
                             value={customReportType}
                             onChange={(e) => setCustomReportType(e.target.value)}
                             placeholder="Enter your report type"
+                            maxLength={120}
                             className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                             aria-label="Custom report type"
                           />
@@ -604,6 +625,8 @@ function ReportArchive() {
                           value={fiscalYear}
                           onChange={(e) => setFiscalYear(e.target.value)}
                           placeholder="e.g. 2024-2025 or choose from suggestions"
+                          pattern="\\d{4}\\s*[-/]\\s*\\d{4}"
+                          maxLength={9}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                           autoComplete="off"

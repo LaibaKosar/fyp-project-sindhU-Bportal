@@ -21,6 +21,13 @@ import {
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeEmail, normalizePhone, normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateEmailField,
+  validatePhoneField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 const FACULTY_NAMES = [
   'Faculty of Arts & Social Sciences',
@@ -67,6 +74,7 @@ function FacultyManagement() {
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
   const [faculties, setFaculties] = useState([])
+  const [campuses, setCampuses] = useState([])
   const [summaryByFaculty, setSummaryByFaculty] = useState({})
   const [departmentsByFaculty, setDepartmentsByFaculty] = useState({})
   const [programsByFaculty, setProgramsByFaculty] = useState({})
@@ -76,6 +84,7 @@ function FacultyManagement() {
   const [toast, setToast] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [campusName, setCampusName] = useState(null)
+  const [selectedCampusId, setSelectedCampusId] = useState(campusId || '')
   const facultyTableEmblemInputRef = useRef(null)
   const pendingEmblemFacultyIdRef = useRef(null)
   const [emblemUploadingFacultyId, setEmblemUploadingFacultyId] = useState(null)
@@ -105,10 +114,36 @@ function FacultyManagement() {
     if (user?.university_id) {
       fetchFaculties()
       if (campusId) {
-        fetchCampusName()
+        setSelectedCampusId(campusId)
+        fetchCampusName(campusId)
+      } else {
+        fetchCampuses()
       }
     }
   }, [user, campusId])
+  const fetchCampuses = async () => {
+    if (!user?.university_id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('campuses')
+        .select('id, name')
+        .eq('university_id', user.university_id)
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching campuses:', error)
+        showToast('Error loading campuses: ' + error.message, 'error')
+        return
+      }
+
+      setCampuses(data || [])
+    } catch (error) {
+      console.error('Error in fetchCampuses:', error)
+      showToast('Error loading campuses: ' + error.message, 'error')
+    }
+  }
+
 
   // Auto-fill faculty code when official name is selected
   useEffect(() => {
@@ -266,14 +301,14 @@ function FacultyManagement() {
     }
   }
 
-  const fetchCampusName = async () => {
-    if (!campusId || !user?.university_id) return
+  const fetchCampusName = async (targetCampusId = selectedCampusId || campusId) => {
+    if (!targetCampusId || !user?.university_id) return
 
     try {
       const { data, error } = await supabase
         .from('campuses')
         .select('name')
-        .eq('id', campusId)
+        .eq('id', targetCampusId)
         .eq('university_id', user.university_id)
         .single()
 
@@ -309,37 +344,44 @@ function FacultyManagement() {
       return
     }
 
+    if (!selectedCampusId) {
+      showToast('Please select a campus', 'error')
+      return
+    }
+
     // Validation
-    if (!officialName) {
-      showToast('Please select an official name', 'error')
-      return
+    const normalizedOfficialName = normalizeText(officialName)
+    const normalizedFacultyCode = normalizeText(facultyCode).toUpperCase()
+    const normalizedDeanName = normalizeText(deanName)
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedPhone = normalizePhone(phoneNumber)
+
+    const officialNameError = validateRequiredField(normalizedOfficialName, 'an official name')
+    if (officialNameError) return showToast(officialNameError, 'error')
+    if (normalizedOfficialName.length > FIELD_LIMITS.name) {
+      return showToast(`Faculty name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
-    if (!facultyCode) {
-      showToast('Please enter a faculty code/abbreviation', 'error')
-      return
+
+    const codeError = validateRequiredField(normalizedFacultyCode, 'a faculty code/abbreviation')
+    if (codeError) return showToast(codeError, 'error')
+    if (normalizedFacultyCode.length > FIELD_LIMITS.shortCode) {
+      return showToast(`Faculty code is too long (max ${FIELD_LIMITS.shortCode} characters)`, 'error')
     }
-    if (!startDate) {
-      showToast('Please select a start date', 'error')
-      return
+
+    const startDateError = validateRequiredField(startDate, 'a start date')
+    if (startDateError) return showToast(startDateError, 'error')
+
+    const deanNameError = validateRequiredField(normalizedDeanName, 'dean/focal person name')
+    if (deanNameError) return showToast(deanNameError, 'error')
+    if (normalizedDeanName.length > FIELD_LIMITS.name) {
+      return showToast(`Dean name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
-    if (!deanName) {
-      showToast('Please enter dean/focal person name', 'error')
-      return
-    }
-    if (!email) {
-      showToast('Please enter an email address', 'error')
-      return
-    }
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      showToast('Please enter a valid email address', 'error')
-      return
-    }
-    if (!phoneNumber) {
-      showToast('Please enter a phone number', 'error')
-      return
-    }
+
+    const emailError = validateEmailField(normalizedEmail)
+    if (emailError) return showToast(emailError, 'error')
+
+    const phoneError = validatePhoneField(normalizedPhone)
+    if (phoneError) return showToast(phoneError, 'error')
 
     setSaving(true)
 
@@ -395,35 +437,32 @@ function FacultyManagement() {
       // Insert into faculties table
       const insertData = {
         university_id: user.university_id,
-        name: officialName,
-        code: facultyCode,
+        name: normalizedOfficialName,
+        code: normalizedFacultyCode,
         status: activeStatus,
         establishment_date: startDate,
-        dean_name: deanName,
-        dean_email: email,
-        dean_phone: phoneNumber,
+        dean_name: normalizedDeanName,
+        dean_email: normalizedEmail,
+        dean_phone: normalizedPhone,
         emblem_url: emblemUrl,
         dean_photo_url: deanPhotoUrl || null,
         dean_appointment_letter_url: deanLetterUrl || null
       }
 
       // Link official dean_id when a teaching staff row already uses the same email (helps Board of Faculty flows).
-      if (email?.trim()) {
+      if (normalizedEmail) {
         const { data: staffRows, error: staffLookupErr } = await supabase
           .from('staff')
           .select('id')
           .eq('university_id', user.university_id)
-          .ilike('email', email.trim())
+          .ilike('email', normalizedEmail)
           .limit(1)
         if (!staffLookupErr && staffRows?.length === 1) {
           insertData.dean_id = staffRows[0].id
         }
       }
 
-      // If campusId is present in URL, include it in the insert
-      if (campusId) {
-        insertData.campus_id = campusId
-      }
+      insertData.campus_id = selectedCampusId
 
       const { data, error } = await supabase
         .from('faculties')
@@ -1115,6 +1154,27 @@ function FacultyManagement() {
                 <div className="p-6">
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {!campusId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-2">
+                    Campus <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedCampusId}
+                    onChange={(e) => setSelectedCampusId(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
+                    required
+                  >
+                    <option value="">Select Campus</option>
+                    {campuses.map((campusOption) => (
+                      <option key={campusOption.id} value={campusOption.id}>
+                        {campusOption.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Faculty Emblem Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 mb-2">
@@ -1178,6 +1238,7 @@ function FacultyManagement() {
                   value={facultyCode}
                   onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
                   placeholder="e.g., FBAS"
+                  maxLength={20}
                   className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                   required
                 />
@@ -1223,6 +1284,7 @@ function FacultyManagement() {
                     value={deanName}
                     onChange={(e) => setDeanName(e.target.value)}
                     placeholder="Enter dean's full name"
+                  maxLength={120}
                   className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                     required
                   />
@@ -1241,6 +1303,7 @@ function FacultyManagement() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="dean@university.edu.pk"
+                  maxLength={120}
                   className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                   required
                 />
@@ -1256,6 +1319,9 @@ function FacultyManagement() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="+92-XXX-XXXXXXX"
+                  inputMode="tel"
+                  pattern="[0-9+\-() ]{10,30}"
+                  maxLength={30}
                   className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                   required
                 />

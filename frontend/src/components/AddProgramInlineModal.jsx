@@ -3,6 +3,8 @@ import { Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import UfpGlassFormModal from './UfpGlassFormModal'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText, toInteger } from '../utils/validation/commonValidators'
+import { FIELD_LIMITS, validateRequiredField } from '../utils/validation/formRules'
 import {
   DEGREE_LEVEL_TO_KEY,
   PROGRAM_CATEGORIES,
@@ -54,6 +56,21 @@ export default function AddProgramInlineModal({
       onError?.('Please fill duration and total credit hours.')
       return
     }
+    const normalizedProgramName = normalizeText(programName)
+    const nameError = validateRequiredField(normalizedProgramName, 'program name')
+    if (nameError) {
+      onError?.(nameError)
+      return
+    }
+    if (normalizedProgramName.length > FIELD_LIMITS.name) {
+      onError?.(`Program name is too long (max ${FIELD_LIMITS.name} characters).`)
+      return
+    }
+    const creditHours = toInteger(totalCreditHours)
+    if (creditHours == null || creditHours <= 0) {
+      onError?.('Please enter valid total credit hours.')
+      return
+    }
     setSaving(true)
     try {
       const programData = {
@@ -61,11 +78,11 @@ export default function AddProgramInlineModal({
         campus_id: campusId,
         faculty_id: facultyId,
         department_id: departmentId,
-        name: programName,
+        name: normalizedProgramName,
         category,
         degree_level: degreeLevel,
         duration_years: duration,
-        total_credit_hours: parseInt(totalCreditHours, 10) || null
+        total_credit_hours: creditHours
       }
       const { error } = await supabase.from('programs').insert(programData).select().single()
       if (error) throw error
@@ -73,7 +90,7 @@ export default function AddProgramInlineModal({
       await recordSystemLog({
         universityId,
         actionType: 'PROGRAM_ADDED',
-        details: `Added program: ${programName}${departmentName ? ` in ${departmentName}` : ''}`,
+        details: `Added program: ${normalizedProgramName}${departmentName ? ` in ${departmentName}` : ''}`,
       })
 
       await onSaved?.()
@@ -184,7 +201,8 @@ export default function AddProgramInlineModal({
               type="number"
               value={totalCreditHours}
               onChange={(e) => setTotalCreditHours(e.target.value)}
-              min={0}
+              min={1}
+              max={400}
               placeholder="e.g. 130"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
               required

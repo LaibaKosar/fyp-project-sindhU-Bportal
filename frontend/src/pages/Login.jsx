@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, Mail, Eye, EyeOff, User } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { normalizeEmail, normalizeText } from '../utils/validation/commonValidators'
+import { validateEmailField, validateRequiredField } from '../utils/validation/formRules'
 
 function Login() {
   const [username, setUsername] = useState('')
@@ -109,6 +111,18 @@ function Login() {
               className="space-y-6"
               onSubmit={async (e) => {
                 e.preventDefault()
+                const normalizedEmail = normalizeEmail(username)
+                const normalizedPassword = normalizeText(password)
+                const emailError = validateEmailField(normalizedEmail)
+                if (emailError) {
+                  setError(emailError)
+                  return
+                }
+                const passwordError = validateRequiredField(normalizedPassword, 'password')
+                if (passwordError) {
+                  setError(passwordError)
+                  return
+                }
                 setLoading(true)
                 setError('')
 
@@ -131,8 +145,8 @@ function Login() {
 
                   // Sign in with Supabase Auth (username is actually email)
                   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                    email: username,
-                    password: password
+                    email: normalizedEmail,
+                    password: normalizedPassword
                   })
 
                   if (authError) throw authError
@@ -186,6 +200,7 @@ function Login() {
                     id="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    maxLength={120}
                     className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
                     style={{
                       boxShadow: username ? '0 0 20px rgba(16, 185, 129, 0.2)' : 'none'
@@ -208,6 +223,8 @@ function Login() {
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={128}
                     className="w-full pl-10 pr-12 py-3 bg-slate-900/50 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
                     style={{
                       boxShadow: password ? '0 0 20px rgba(16, 185, 129, 0.2)' : 'none'

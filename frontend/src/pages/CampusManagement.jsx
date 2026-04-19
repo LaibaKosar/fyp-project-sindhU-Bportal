@@ -18,6 +18,13 @@ import {
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText, toInteger } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateNumberRangeField,
+  validateRequiredField,
+  validateUrlField,
+} from '../utils/validation/formRules'
 
 const CITIES = [
   'Karachi',
@@ -260,31 +267,44 @@ function CampusManagement() {
       return
     }
 
-    // Validation
-    if (!campusName) {
-      showToast('Please enter sub-campus name', 'error')
-      return
+    const normalizedCampusName = normalizeText(campusName)
+    const normalizedCampusCode = normalizeText(campusCode).toUpperCase()
+    const normalizedProVcName = normalizeText(proVcName)
+    const normalizedCity = normalizeText(city)
+    const normalizedWebsite = normalizeText(websiteUrl)
+    const normalizedAddress = normalizeText(completeAddress)
+    const yearNumber = toInteger(establishmentYear)
+    const currentYear = new Date().getFullYear()
+
+    const campusNameError = validateRequiredField(normalizedCampusName, 'sub-campus name')
+    if (campusNameError) return showToast(campusNameError, 'error')
+    if (normalizedCampusName.length > FIELD_LIMITS.name) {
+      return showToast(`Campus name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
-    if (!campusCode) {
-      showToast('Please enter campus code', 'error')
-      return
+
+    const campusCodeError = validateRequiredField(normalizedCampusCode, 'campus code')
+    if (campusCodeError) return showToast(campusCodeError, 'error')
+    if (normalizedCampusCode.length > FIELD_LIMITS.shortCode) {
+      return showToast(`Campus code is too long (max ${FIELD_LIMITS.shortCode} characters)`, 'error')
     }
-    if (!proVcName) {
-      showToast(`Please enter ${isMainCampus ? 'Vice Chancellor' : 'Pro Vice Chancellor'} name`, 'error')
-      return
+
+    const leaderError = validateRequiredField(
+      normalizedProVcName,
+      `${isMainCampus ? 'Vice Chancellor' : 'Pro Vice Chancellor'} name`
+    )
+    if (leaderError) return showToast(leaderError, 'error')
+    if (normalizedProVcName.length > FIELD_LIMITS.name) {
+      return showToast(`Name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
-    if (!establishmentYear) {
-      showToast('Please enter establishment year', 'error')
-      return
-    }
-    if (!city) {
-      showToast('Please select a city', 'error')
-      return
-    }
-    if (websiteUrl && !isValidUrl(websiteUrl)) {
-      showToast('Please enter a valid website URL', 'error')
-      return
-    }
+
+    const yearError = validateNumberRangeField(yearNumber, 1900, currentYear, 'establishment year')
+    if (yearError) return showToast(yearError, 'error')
+
+    const cityError = validateRequiredField(normalizedCity, 'city')
+    if (cityError) return showToast(cityError, 'error')
+
+    const websiteError = validateUrlField(normalizedWebsite)
+    if (websiteError) return showToast(websiteError, 'error')
 
     setSaving(true)
 
@@ -314,13 +334,13 @@ function CampusManagement() {
         .from('campuses')
         .insert({
           university_id: user.university_id,
-          name: campusName,
-          code: campusCode,
-          pro_vice_chancellor: proVcName,
-          establishment_year: establishmentYear,
-          city: city,
-          website_url: websiteUrl === '' ? null : websiteUrl,
-          address: completeAddress || null,
+          name: normalizedCampusName,
+          code: normalizedCampusCode,
+          pro_vice_chancellor: normalizedProVcName,
+          establishment_year: yearNumber,
+          city: normalizedCity,
+          website_url: normalizedWebsite || null,
+          address: normalizedAddress || null,
           campus_photo_url: publicUrl, // Save full public URL
           is_main_campus: isMainCampus
         })
@@ -397,15 +417,6 @@ function CampusManagement() {
       showToast(error.message || 'Error saving campus', 'error')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const isValidUrl = (string) => {
-    try {
-      new URL(string)
-      return true
-    } catch (_) {
-      return false
     }
   }
 
@@ -675,6 +686,7 @@ function CampusManagement() {
                         value={campusName}
                         onChange={(e) => setCampusName(e.target.value)}
                         placeholder="Enter sub-campus name"
+                        maxLength={120}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -690,6 +702,7 @@ function CampusManagement() {
                         value={campusCode}
                         onChange={(e) => setCampusCode(e.target.value.toUpperCase())}
                         placeholder="e.g., KHI, HYD"
+                        maxLength={20}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -705,6 +718,7 @@ function CampusManagement() {
                         value={proVcName}
                         onChange={(e) => setProVcName(e.target.value)}
                         placeholder={isMainCampus ? "Enter VC's full name" : "Enter Pro-VC's full name"}
+                        maxLength={120}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -745,6 +759,7 @@ function CampusManagement() {
                           }}
                           onFocus={() => setShowCityDropdown(true)}
                           placeholder="Search or select city"
+                          maxLength={120}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -780,6 +795,7 @@ function CampusManagement() {
                         value={websiteUrl}
                         onChange={(e) => setWebsiteUrl(e.target.value)}
                         placeholder="https://campus.example.edu.pk"
+                        maxLength={255}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                       />
                     </div>
@@ -794,6 +810,7 @@ function CampusManagement() {
                         onChange={(e) => setCompleteAddress(e.target.value)}
                         placeholder="Enter complete address"
                         rows={3}
+                        maxLength={1000}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm resize-none"
                       />
                     </div>

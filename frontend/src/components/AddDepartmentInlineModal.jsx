@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient'
 import UfpGlassFormModal from './UfpGlassFormModal'
 import { DEPARTMENT_MAPPING, generateDepartmentCode } from '../data/departmentFormPresets'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeEmail, normalizePhone, normalizeText } from '../utils/validation/commonValidators'
+import { FIELD_LIMITS, validateEmailField, validatePhoneField } from '../utils/validation/formRules'
 
 async function uploadHodPhoto(file, universityId) {
   const fileName = `hod-photo-${universityId}-${Date.now()}-${file.name}`
@@ -123,19 +125,36 @@ export default function AddDepartmentInlineModal({
       onError?.('Please select or enter department name.')
       return
     }
-    if (!departmentCode) {
+    const normalizedDepartmentName = normalizeText(finalDepartmentName)
+    const normalizedDepartmentCode = normalizeText(departmentCode).toUpperCase()
+    const normalizedHodName = normalizeText(hodName)
+    const normalizedHodEmail = normalizeEmail(hodEmail)
+    const normalizedHodPhone = normalizePhone(hodPhone)
+
+    if (!normalizedDepartmentName) {
+      onError?.('Please select or enter department name.')
+      return
+    }
+    if (normalizedDepartmentName.length > FIELD_LIMITS.name) {
+      onError?.(`Department name is too long (max ${FIELD_LIMITS.name} characters).`)
+      return
+    }
+    if (!normalizedDepartmentCode) {
       onError?.('Please enter department code.')
       return
     }
-    if (!hodName || !hodEmail || !hodPhone) {
+    if (normalizedDepartmentCode.length > FIELD_LIMITS.shortCode) {
+      onError?.(`Department code is too long (max ${FIELD_LIMITS.shortCode} characters).`)
+      return
+    }
+    if (!normalizedHodName || !normalizedHodEmail || !normalizedHodPhone) {
       onError?.('Please enter HoD name, email, and phone.')
       return
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(hodEmail)) {
-      onError?.('Please enter a valid HoD email.')
-      return
-    }
+    const hodEmailError = validateEmailField(normalizedHodEmail, 'a valid HoD email')
+    if (hodEmailError) return onError?.(hodEmailError)
+    const hodPhoneError = validatePhoneField(normalizedHodPhone, 'a valid HoD phone number')
+    if (hodPhoneError) return onError?.(hodPhoneError)
 
     setSaving(true)
     try {
@@ -154,11 +173,11 @@ export default function AddDepartmentInlineModal({
           university_id: universityId,
           campus_id: campusId,
           faculty_id: facultyId,
-          name: finalDepartmentName,
-          code: departmentCode,
-          head_of_department: hodName || null,
-          hod_email: hodEmail || null,
-          hod_phone: hodPhone || null,
+          name: normalizedDepartmentName,
+          code: normalizedDepartmentCode,
+          head_of_department: normalizedHodName || null,
+          hod_email: normalizedHodEmail || null,
+          hod_phone: normalizedHodPhone || null,
           hod_photo_url: publicUrl,
           hod_appointment_letter_url: appointmentLetterUrl || null,
           status: status || null
@@ -171,7 +190,7 @@ export default function AddDepartmentInlineModal({
       await recordSystemLog({
         universityId,
         actionType: 'DEPARTMENT_ADDED',
-        details: `Added department: ${finalDepartmentName} (from faculty page)`
+        details: `Added department: ${normalizedDepartmentName} (from faculty page)`
       })
 
       await onSaved?.()
@@ -202,6 +221,7 @@ export default function AddDepartmentInlineModal({
                 value={customDepartmentName}
                 onChange={(e) => setCustomDepartmentName(e.target.value)}
                 placeholder="e.g., Department of Islamic Studies"
+                maxLength={120}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
                 required
               />
@@ -229,6 +249,7 @@ export default function AddDepartmentInlineModal({
             <input
               value={customDepartmentName}
               onChange={(e) => setCustomDepartmentName(e.target.value)}
+              maxLength={120}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
               required
             />
@@ -241,6 +262,7 @@ export default function AddDepartmentInlineModal({
           <input
             value={departmentCode}
             onChange={(e) => setDepartmentCode(e.target.value.toUpperCase())}
+            maxLength={20}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-mono"
             required
           />
@@ -252,6 +274,7 @@ export default function AddDepartmentInlineModal({
           <input
             value={hodName}
             onChange={(e) => setHodName(e.target.value)}
+            maxLength={120}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
             required
           />
@@ -265,6 +288,7 @@ export default function AddDepartmentInlineModal({
               type="email"
               value={hodEmail}
               onChange={(e) => setHodEmail(e.target.value)}
+              maxLength={120}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
               required
             />
@@ -277,6 +301,9 @@ export default function AddDepartmentInlineModal({
               type="tel"
               value={hodPhone}
               onChange={(e) => setHodPhone(e.target.value)}
+              inputMode="tel"
+              pattern="[0-9+\-() ]{10,30}"
+              maxLength={30}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
               required
             />
@@ -295,7 +322,7 @@ export default function AddDepartmentInlineModal({
             <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" id="inline-hod-photo" />
             <label
               htmlFor="inline-hod-photo"
-              className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-sm"
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-500 hover:text-blue-700"
             >
               <Camera className="h-4 w-4" />
               Upload
@@ -313,7 +340,7 @@ export default function AddDepartmentInlineModal({
           />
           <label
             htmlFor="inline-hod-letter"
-            className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-sm"
+            className="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-500 hover:text-blue-700"
           >
             <Upload className="h-4 w-4" />
             {hodAppointmentLetterFile ? hodAppointmentLetterFile.name : 'PDF / document'}

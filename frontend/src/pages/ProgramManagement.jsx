@@ -14,6 +14,8 @@ import {
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { UfpAdminShell, UfpAdminContainer, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText, toInteger } from '../utils/validation/commonValidators'
+import { FIELD_LIMITS, validateRequiredField } from '../utils/validation/formRules'
 import {
   DEGREE_LEVEL_TO_KEY,
   PROGRAM_CATEGORIES,
@@ -283,6 +285,18 @@ function ProgramManagement() {
       return
     }
 
+    const normalizedProgramName = normalizeText(programName)
+    const nameError = validateRequiredField(normalizedProgramName, 'program name')
+    if (nameError) return showToast(nameError, 'error')
+    if (normalizedProgramName.length > FIELD_LIMITS.name) {
+      return showToast(`Program name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
+    }
+
+    const creditHours = toInteger(totalCreditHours)
+    if (creditHours === null || creditHours <= 0) {
+      return showToast('Please enter valid total credit hours', 'error')
+    }
+
     setSaving(true)
 
     try {
@@ -291,11 +305,11 @@ function ProgramManagement() {
         campus_id: selectedCampusId,
         faculty_id: facultyId,
         department_id: departmentId,
-        name: programName,
+        name: normalizedProgramName,
         category: category,
         degree_level: degreeLevel,
         duration_years: duration,
-        total_credit_hours: parseInt(totalCreditHours) || null
+        total_credit_hours: creditHours
       }
 
       const { data, error } = await supabase
@@ -309,7 +323,7 @@ function ProgramManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'PROGRAM_ADDED',
-        details: `Added program: ${data?.name || programName}`,
+        details: `Added program: ${data?.name || normalizedProgramName}`,
       })
 
       showToast('Program added successfully!', 'success')
@@ -692,7 +706,8 @@ function ProgramManagement() {
                           value={totalCreditHours}
                           onChange={(e) => setTotalCreditHours(e.target.value)}
                           placeholder="e.g., 130"
-                          min="0"
+                          min="1"
+                          max="400"
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />

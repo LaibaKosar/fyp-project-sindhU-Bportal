@@ -11,6 +11,8 @@ import GovernanceActivityFeed from '../components/GovernanceActivityFeed'
 import SectionErrorBoundary from '../components/SectionErrorBoundary'
 import DataTable from '../components/DataTable'
 import UBDashboardHome from './UBDashboardHome'
+import { normalizeEmail, normalizeText } from '../utils/validation/commonValidators'
+import { validateEmailField } from '../utils/validation/formRules'
 
 // List of universities to initialize
 const UNIVERSITY_NAMES = [
@@ -674,8 +676,21 @@ function UBAdminDashboard() {
     setIsCreating(true)
 
     try {
-      if (!selectedUniversityId || !focalPersonEmail || !tempPassword) {
+      const normalizedEmail = normalizeEmail(focalPersonEmail)
+      const normalizedPassword = normalizeText(tempPassword)
+      const emailError = validateEmailField(normalizedEmail, 'a valid focal person email address')
+      if (emailError) {
+        showToast(emailError, 'error')
+        setIsCreating(false)
+        return
+      }
+      if (!selectedUniversityId || !normalizedEmail || !normalizedPassword) {
         showToast('Please fill in all fields', 'error')
+        setIsCreating(false)
+        return
+      }
+      if (normalizedPassword.length < 8) {
+        showToast('Temporary password must be at least 8 characters', 'error')
         setIsCreating(false)
         return
       }
@@ -696,7 +711,7 @@ function UBAdminDashboard() {
       }
 
       // Check for duplicates
-      const duplicateCheck = await checkDuplicates(focalPersonEmail)
+      const duplicateCheck = await checkDuplicates(normalizedEmail)
       if (duplicateCheck.isDuplicate) {
         showToast(duplicateCheck.message, 'error')
         setIsCreating(false)
@@ -717,8 +732,8 @@ function UBAdminDashboard() {
 
       // Store admin session tokens
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: focalPersonEmail,
-        password: tempPassword,
+        email: normalizedEmail,
+        password: normalizedPassword,
         options: {
           data: {
             role: 'UFP',
@@ -1437,6 +1452,7 @@ function UBAdminDashboard() {
                       type="email"
                       value={focalPersonEmail}
                       onChange={(e) => setFocalPersonEmail(e.target.value)}
+                      maxLength={120}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                       placeholder="focal.person@university.edu.pk"
                       required
@@ -1452,6 +1468,8 @@ function UBAdminDashboard() {
                         type="text"
                         value={tempPassword}
                         onChange={(e) => setTempPassword(e.target.value)}
+                        minLength={8}
+                        maxLength={128}
                         className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                         placeholder="Generate or enter password"
                         required

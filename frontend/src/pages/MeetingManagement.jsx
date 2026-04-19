@@ -22,6 +22,8 @@ import {
 import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText } from '../utils/validation/commonValidators'
+import { FIELD_LIMITS, validateRequiredField } from '../utils/validation/formRules'
 
 // Body Types
 const BODY_TYPES = [
@@ -202,9 +204,30 @@ function MeetingManagement() {
       return
     }
 
-    if (!bodyType || !meetingDate || !startTime || !venue || !subject) {
+    if (!bodyType || !meetingDate || !startTime) {
       showToast('Please fill in all required fields', 'error')
       return
+    }
+
+    const normalizedVenue = normalizeText(venue)
+    const normalizedSubject = normalizeText(subject)
+    const normalizedAttendance = normalizeText(attendance)
+    const normalizedSummary = normalizeText(decisionsSummary)
+    const venueError = validateRequiredField(normalizedVenue, 'venue')
+    if (venueError) return showToast(venueError, 'error')
+    const subjectError = validateRequiredField(normalizedSubject, 'subject')
+    if (subjectError) return showToast(subjectError, 'error')
+    if (normalizedVenue.length > FIELD_LIMITS.title) {
+      return showToast(`Venue is too long (max ${FIELD_LIMITS.title} characters)`, 'error')
+    }
+    if (normalizedSubject.length > FIELD_LIMITS.title) {
+      return showToast(`Subject is too long (max ${FIELD_LIMITS.title} characters)`, 'error')
+    }
+    if (normalizedAttendance.length > FIELD_LIMITS.notes) {
+      return showToast(`Attendance details are too long (max ${FIELD_LIMITS.notes} characters)`, 'error')
+    }
+    if (normalizedSummary.length > FIELD_LIMITS.notes) {
+      return showToast(`Executive summary is too long (max ${FIELD_LIMITS.notes} characters)`, 'error')
     }
 
     setSaving(true)
@@ -233,10 +256,10 @@ function MeetingManagement() {
         body_type: bodyType,
         meeting_date: meetingDate,
         start_time: startTime,
-        venue: venue,
-        subject: subject,
-        attendance: attendance || null,
-        decisions_summary: decisionsSummary || null,
+        venue: normalizedVenue,
+        subject: normalizedSubject,
+        attendance: normalizedAttendance || null,
+        decisions_summary: normalizedSummary || null,
         status: status,
         notification_url: notificationUrl,
         minutes_url: minutesUrl
@@ -253,7 +276,7 @@ function MeetingManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'BOARD_MEETING',
-        details: `Recorded ${bodyType} meeting: ${subject}`,
+        details: `Recorded ${bodyType} meeting: ${normalizedSubject}`,
       })
 
       showToast('Meeting record added successfully!', 'success')
@@ -646,6 +669,7 @@ function MeetingManagement() {
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
                         placeholder="e.g., 7th Syndicate Meeting - Budget 2026"
+                        maxLength={180}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -686,6 +710,7 @@ function MeetingManagement() {
                           value={venue}
                           onChange={(e) => setVenue(e.target.value)}
                           placeholder="e.g., Vice Chancellor's Conference Room"
+                          maxLength={180}
                           className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                           required
                         />
@@ -702,6 +727,7 @@ function MeetingManagement() {
                         onChange={(e) => setAttendance(e.target.value)}
                         placeholder="Members Present: [List names]&#10;Members Absent: [List names]"
                         rows={4}
+                        maxLength={1000}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm resize-none"
                       />
                     </div>
@@ -716,6 +742,7 @@ function MeetingManagement() {
                         onChange={(e) => setDecisionsSummary(e.target.value)}
                         placeholder="Summarize the key decisions and conclusions from this meeting..."
                         rows={4}
+                        maxLength={1000}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm resize-none"
                       />
                     </div>

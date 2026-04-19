@@ -23,6 +23,12 @@ import {
 import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateDateRangeField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 // Board Levels
 const BOARD_LEVELS = {
@@ -296,7 +302,15 @@ function BoardManagement() {
       return
     }
 
-    if (new Date(termEnd) < new Date(termStart)) {
+    const normalizedBoardName = normalizeText(boardName)
+    const boardNameError = validateRequiredField(normalizedBoardName, 'board name')
+    if (boardNameError) return showToast(boardNameError, 'error')
+    if (normalizedBoardName.length > FIELD_LIMITS.title) {
+      return showToast(`Board name is too long (max ${FIELD_LIMITS.title} characters)`, 'error')
+    }
+
+    const dateError = validateDateRangeField(termStart, termEnd)
+    if (dateError) {
       showToast('Term end date must be after term start date', 'error')
       return
     }
@@ -328,7 +342,7 @@ function BoardManagement() {
     try {
       const boardData = {
         university_id: user.university_id,
-        name: boardName,
+        name: normalizedBoardName,
         board_type: activeTab === BOARD_LEVELS.FACULTY ? BOARD_TYPES.FACULTY : BOARD_TYPES.DEPARTMENT,
         term_start: termStart,
         term_end: termEnd,
@@ -358,7 +372,7 @@ function BoardManagement() {
           await recordSystemLog({
             universityId: user.university_id,
             actionType: 'BOARD_UPDATED',
-            details: `Updated board: ${boardName}`,
+            details: `Updated board: ${normalizedBoardName}`,
           })
           showToast('Board updated successfully!', 'success')
         }
@@ -373,7 +387,7 @@ function BoardManagement() {
           await recordSystemLog({
             universityId: user.university_id,
             actionType: 'BOARD_ADDED',
-            details: `Added board: ${boardName}`,
+            details: `Added board: ${normalizedBoardName}`,
           })
           showToast('Board created successfully!', 'success')
         }
@@ -408,20 +422,26 @@ function BoardManagement() {
       return
     }
 
-    if (!memberName || !memberRole) {
-      showToast('Please fill in all required fields', 'error')
-      return
+    const normalizedMemberName = normalizeText(memberName)
+    const normalizedDesignation = normalizeText(memberDesignation)
+    const normalizedAffiliation = normalizeText(memberAffiliation)
+    const normalizedStatusPerAct = normalizeText(memberStatusAsPerAct)
+    const memberNameError = validateRequiredField(normalizedMemberName, 'member name')
+    if (memberNameError) return showToast(memberNameError, 'error')
+    if (normalizedMemberName.length > FIELD_LIMITS.name) {
+      return showToast(`Member name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
+    if (!memberRole) return showToast('Please fill in all required fields', 'error')
 
     const finalMemberRole =
-      memberRole === OTHER_BOARD_MEMBER_ROLE ? customMemberRole.trim() : memberRole
+      memberRole === OTHER_BOARD_MEMBER_ROLE ? normalizeText(customMemberRole) : memberRole
 
     if (memberRole === OTHER_BOARD_MEMBER_ROLE && !finalMemberRole) {
       showToast('Please enter a role when using Other', 'error')
       return
     }
 
-    if (memberType === 'External' && !memberAffiliation) {
+    if (memberType === 'External' && !normalizedAffiliation) {
       showToast('Please provide affiliation for external members', 'error')
       return
     }
@@ -431,12 +451,12 @@ function BoardManagement() {
     try {
       const memberData = {
         board_id: selectedBoard.id,
-        full_name: memberName,
-        designation: memberDesignation || null,
+        full_name: normalizedMemberName,
+        designation: normalizedDesignation || null,
         role: finalMemberRole,
         member_type: memberType,
-        affiliation: memberType === 'External' ? memberAffiliation : null,
-        status_as_per_act: memberStatusAsPerAct || null
+        affiliation: memberType === 'External' ? normalizedAffiliation : null,
+        status_as_per_act: normalizedStatusPerAct || null
       }
 
       const { error } = await supabase
@@ -448,7 +468,7 @@ function BoardManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'BOARD_MEMBER_ADDED',
-        details: `Added board member: ${memberName} (${finalMemberRole}) in ${selectedBoard?.name || 'board'}.`,
+        details: `Added board member: ${normalizedMemberName} (${finalMemberRole}) in ${selectedBoard?.name || 'board'}.`,
       })
 
       showToast('Member added successfully!', 'success')
@@ -1005,6 +1025,7 @@ function BoardManagement() {
                         value={boardName}
                         onChange={(e) => setBoardName(e.target.value)}
                         placeholder="e.g., Board of Studies for Computer Science"
+                        maxLength={180}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -1267,6 +1288,7 @@ function BoardManagement() {
                           type="text"
                           value={memberName}
                           onChange={(e) => setMemberName(e.target.value)}
+                          maxLength={120}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                           required
                         />
@@ -1279,6 +1301,7 @@ function BoardManagement() {
                           type="text"
                           value={memberDesignation}
                           onChange={(e) => setMemberDesignation(e.target.value)}
+                          maxLength={120}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                         />
                       </div>
@@ -1291,6 +1314,7 @@ function BoardManagement() {
                           value={memberStatusAsPerAct}
                           onChange={(e) => setMemberStatusAsPerAct(e.target.value)}
                           placeholder="e.g., Nominee of the Commission, Vice Chancellor"
+                          maxLength={180}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                         />
                         <p className="mt-1 text-xs text-slate-500 italic">
@@ -1326,6 +1350,7 @@ function BoardManagement() {
                             value={customMemberRole}
                             onChange={(e) => setCustomMemberRole(e.target.value)}
                             placeholder="Enter role (e.g., Co-opted member, Observer)"
+                            maxLength={120}
                             className="mt-2 w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                           />
                         )}
@@ -1372,6 +1397,7 @@ function BoardManagement() {
                             value={memberAffiliation}
                             onChange={(e) => setMemberAffiliation(e.target.value)}
                             placeholder="e.g., IBA Sukkur, Google"
+                            maxLength={120}
                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                             required={memberType === 'External'}
                           />

@@ -135,10 +135,9 @@ function UFPDashboard() {
     if (!user?.university_id) return
 
     try {
-      // Fetch all faculty names to count unique names across campuses
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('faculties')
-        .select('name')
+        .select('*', { count: 'exact', head: true })
         .eq('university_id', user.university_id)
 
       if (error) {
@@ -146,9 +145,7 @@ function UFPDashboard() {
         return
       }
 
-      // Count unique faculty names
-      const uniqueNames = [...new Set(data.map(f => f.name))]
-      setFacultyCount(uniqueNames.length)
+      setFacultyCount(count || 0)
     } catch (error) {
       console.error('Error in fetchFacultyCount:', error)
     }
@@ -158,10 +155,9 @@ function UFPDashboard() {
     if (!user?.university_id) return
 
     try {
-      // Fetch all department names to count unique names across campuses
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('departments')
-        .select('name')
+        .select('*', { count: 'exact', head: true })
         .eq('university_id', user.university_id)
 
       if (error) {
@@ -169,9 +165,7 @@ function UFPDashboard() {
         return
       }
 
-      // Count unique department names
-      const uniqueNames = [...new Set(data.map(d => d.name))]
-      setDepartmentCount(uniqueNames.length)
+      setDepartmentCount(count || 0)
     } catch (error) {
       console.error('Error in fetchDepartmentCount:', error)
     }

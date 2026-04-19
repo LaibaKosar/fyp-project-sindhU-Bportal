@@ -3,6 +3,13 @@ import { Loader2, Camera, Users } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import UfpGlassFormModal from './UfpGlassFormModal'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeEmail, normalizePhone, normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateEmailField,
+  validatePhoneField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 const ACADEMIC_DESIGNATIONS = [
   'Professor',
@@ -21,6 +28,8 @@ const ADMINISTRATIVE_ROLES = [
   'Chairperson',
   'Program Coordinator'
 ]
+const OTHER_TEACHING_DESIGNATION_OPTION = '__OTHER_TEACHING_DESIGNATION__'
+const OTHER_ADMIN_ROLE_OPTION = '__OTHER_ADMIN_ROLE__'
 
 const EMPLOYMENT_TYPES = ['Permanent', 'Contract', 'Visiting', 'Daily Wages']
 const GENDER_OPTIONS = ['Male', 'Female', 'Prefer not to say']
@@ -53,7 +62,9 @@ export default function AddTeachingStaffInlineModal({
   const [cnic, setCnic] = useState('')
   const [employmentType, setEmploymentType] = useState('Permanent')
   const [academicDesignation, setAcademicDesignation] = useState('')
+  const [academicDesignationCustom, setAcademicDesignationCustom] = useState('')
   const [administrativeRole, setAdministrativeRole] = useState('No Additional Role')
+  const [administrativeRoleCustom, setAdministrativeRoleCustom] = useState('')
   const [qualification, setQualification] = useState('')
   const [specialization, setSpecialization] = useState('')
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
@@ -69,7 +80,9 @@ export default function AddTeachingStaffInlineModal({
     setCnic('')
     setEmploymentType('Permanent')
     setAcademicDesignation('')
+    setAcademicDesignationCustom('')
     setAdministrativeRole('No Additional Role')
+    setAdministrativeRoleCustom('')
     setQualification('')
     setSpecialization('')
     setProfilePhotoFile(null)
@@ -89,12 +102,42 @@ export default function AddTeachingStaffInlineModal({
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!universityId || !campusId || !facultyId || !departmentId) return
-    if (!fullName || !email || !phone) {
-      onError?.('Please fill name, email, and phone.')
-      return
+    const normalizedFullName = normalizeText(fullName)
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedPhone = normalizePhone(phone)
+    const normalizedCnic = normalizeText(cnic)
+    const normalizedQualification = normalizeText(qualification)
+    const normalizedSpecialization = normalizeText(specialization)
+    const fullNameError = validateRequiredField(normalizedFullName, 'full name')
+    if (fullNameError) return onError?.(fullNameError)
+    if (normalizedFullName.length > FIELD_LIMITS.name) {
+      return onError?.(`Full name is too long (max ${FIELD_LIMITS.name} characters).`)
+    }
+    const emailError = validateEmailField(normalizedEmail)
+    if (emailError) return onError?.(emailError)
+    const phoneError = validatePhoneField(normalizedPhone)
+    if (phoneError) return onError?.(phoneError)
+    if (normalizedCnic && !/^\d{5}-\d{7}-\d$/.test(normalizedCnic)) {
+      return onError?.('Please enter CNIC in format 12345-1234567-1.')
     }
     if (!academicDesignation) {
       onError?.('Please select academic designation.')
+      return
+    }
+    const finalAcademicDesignation =
+      academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION
+        ? normalizeText(academicDesignationCustom)
+        : academicDesignation
+    const finalAdministrativeRole =
+      administrativeRole === OTHER_ADMIN_ROLE_OPTION
+        ? normalizeText(administrativeRoleCustom)
+        : administrativeRole
+    if (academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION && !finalAcademicDesignation) {
+      onError?.('Please enter a custom academic designation.')
+      return
+    }
+    if (administrativeRole === OTHER_ADMIN_ROLE_OPTION && !finalAdministrativeRole) {
+      onError?.('Please enter a custom administrative role.')
       return
     }
     setSaving(true)
@@ -107,26 +150,26 @@ export default function AddTeachingStaffInlineModal({
         university_id: universityId,
         campus_id: campusId,
         type: 'Teaching',
-        full_name: fullName,
-        email,
-        phone,
+        full_name: normalizedFullName,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         gender,
-        cnic: cnic || null,
+        cnic: normalizedCnic || null,
         employment_type: employmentType,
         profile_photo_url: publicUrl,
         faculty_id: facultyId,
         department_id: departmentId,
-        academic_designation: academicDesignation,
-        administrative_role: administrativeRole,
-        qualification: qualification || null,
-        specialization: specialization || null
+        academic_designation: finalAcademicDesignation,
+        administrative_role: finalAdministrativeRole,
+        qualification: normalizedQualification || null,
+        specialization: normalizedSpecialization || null
       }
       const { error } = await supabase.from('staff').insert(staffData).select().single()
       if (error) throw error
       await recordSystemLog({
         universityId,
         actionType: 'STAFF_UPDATED',
-        details: `Registered teaching staff: ${fullName}`
+        details: `Registered teaching staff: ${normalizedFullName}`
       })
       await onSaved?.()
       onClose()
@@ -155,6 +198,7 @@ export default function AddTeachingStaffInlineModal({
           <input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            maxLength={120}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
             required
           />
@@ -168,6 +212,7 @@ export default function AddTeachingStaffInlineModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              maxLength={120}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
               required
             />
@@ -180,6 +225,9 @@ export default function AddTeachingStaffInlineModal({
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              pattern="[0-9+\-() ]{10,30}"
+              maxLength={30}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
               required
             />
@@ -220,6 +268,9 @@ export default function AddTeachingStaffInlineModal({
           <input
             value={cnic}
             onChange={(e) => setCnic(e.target.value)}
+            inputMode="numeric"
+            pattern="[0-9]{5}-[0-9]{7}-[0-9]{1}"
+            maxLength={15}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
           />
         </div>
@@ -229,7 +280,12 @@ export default function AddTeachingStaffInlineModal({
           </label>
           <select
             value={academicDesignation}
-            onChange={(e) => setAcademicDesignation(e.target.value)}
+            onChange={(e) => {
+              setAcademicDesignation(e.target.value)
+              if (e.target.value !== OTHER_TEACHING_DESIGNATION_OPTION) {
+                setAcademicDesignationCustom('')
+              }
+            }}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
             required
           >
@@ -239,13 +295,30 @@ export default function AddTeachingStaffInlineModal({
                 {d}
               </option>
             ))}
+            <option value={OTHER_TEACHING_DESIGNATION_OPTION}>Other (custom)</option>
           </select>
+          {academicDesignation === OTHER_TEACHING_DESIGNATION_OPTION && (
+            <input
+              type="text"
+              value={academicDesignationCustom}
+              onChange={(e) => setAcademicDesignationCustom(e.target.value)}
+              placeholder="Enter custom academic designation"
+              maxLength={120}
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+              required
+            />
+          )}
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-900">Administrative role</label>
           <select
             value={administrativeRole}
-            onChange={(e) => setAdministrativeRole(e.target.value)}
+            onChange={(e) => {
+              setAdministrativeRole(e.target.value)
+              if (e.target.value !== OTHER_ADMIN_ROLE_OPTION) {
+                setAdministrativeRoleCustom('')
+              }
+            }}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
           >
             {ADMINISTRATIVE_ROLES.map((r) => (
@@ -253,7 +326,19 @@ export default function AddTeachingStaffInlineModal({
                 {r}
               </option>
             ))}
+            <option value={OTHER_ADMIN_ROLE_OPTION}>Other (custom)</option>
           </select>
+          {administrativeRole === OTHER_ADMIN_ROLE_OPTION && (
+            <input
+              type="text"
+              value={administrativeRoleCustom}
+              onChange={(e) => setAdministrativeRoleCustom(e.target.value)}
+              placeholder="Enter custom administrative role"
+              maxLength={120}
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+              required
+            />
+          )}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -262,6 +347,7 @@ export default function AddTeachingStaffInlineModal({
               value={qualification}
               onChange={(e) => setQualification(e.target.value)}
               placeholder="e.g. PhD"
+              maxLength={120}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
             />
           </div>
@@ -270,6 +356,7 @@ export default function AddTeachingStaffInlineModal({
             <input
               value={specialization}
               onChange={(e) => setSpecialization(e.target.value)}
+              maxLength={120}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
             />
           </div>

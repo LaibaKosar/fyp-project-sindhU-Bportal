@@ -19,6 +19,12 @@ import {
 import { UfpAdminShell, UfpAdminPageWide, UfpAdminLoadingCenter } from '../components/UfpAdminShell'
 import { UfpManagementPageHeader } from '../components/UfpManagementPageHeader'
 import { recordSystemLog } from '../utils/systemLogs'
+import { normalizeText } from '../utils/validation/commonValidators'
+import {
+  FIELD_LIMITS,
+  validateDateRangeField,
+  validateRequiredField,
+} from '../utils/validation/formRules'
 
 // Roles in Committee
 const OFFICIAL_SEAT_OPTIONS = [
@@ -405,23 +411,32 @@ function CommitteeManagement() {
       return
     }
 
-    if (!memberName || !roleInCommittee) {
-      showToast('Please fill in all required fields', 'error')
-      return
+    const normalizedMemberName = normalizeText(memberName)
+    const normalizedDesignation = normalizeText(designation)
+    const normalizedRole = normalizeText(roleInCommittee)
+    const normalizedCustomStatus = normalizeText(customStatusAsPerAct)
+
+    const memberNameError = validateRequiredField(normalizedMemberName, 'member name')
+    if (memberNameError) return showToast(memberNameError, 'error')
+    if (normalizedMemberName.length > FIELD_LIMITS.name) {
+      return showToast(`Member name is too long (max ${FIELD_LIMITS.name} characters)`, 'error')
     }
+    const roleError = validateRequiredField(normalizedRole, 'role in committee')
+    if (roleError) return showToast(roleError, 'error')
 
     if (!termStart || !termEnd) {
       showToast('Please select term start and end dates', 'error')
       return
     }
 
-    if (new Date(termEnd) < new Date(termStart)) {
+    const dateError = validateDateRangeField(termStart, termEnd)
+    if (dateError) {
       showToast('Term end date must be after term start date', 'error')
       return
     }
 
     const finalStatusAsPerAct =
-      statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION ? customStatusAsPerAct.trim() : statusAsPerAct
+      statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION ? normalizedCustomStatus : statusAsPerAct
 
     if (statusAsPerAct === OTHER_OFFICIAL_SEAT_OPTION && !finalStatusAsPerAct) {
       showToast('Please enter official seat / status as per act', 'error')
@@ -439,9 +454,9 @@ function CommitteeManagement() {
 
       const memberData = {
         university_id: user.university_id,
-        full_name: memberName,
-        designation: designation || null,
-        role_in_committee: roleInCommittee,
+        full_name: normalizedMemberName,
+        designation: normalizedDesignation || null,
+        role_in_committee: normalizedRole,
         term_start: termStart,
         term_end: termEnd,
         status_as_per_act: finalStatusAsPerAct || null,
@@ -466,7 +481,7 @@ function CommitteeManagement() {
       await recordSystemLog({
         universityId: user.university_id,
         actionType: 'COMMITTEE_MEMBER_ADDED',
-        details: `Added ${committeeType} member: ${memberName} (${roleInCommittee}).`,
+        details: `Added ${committeeType} member: ${normalizedMemberName} (${normalizedRole}).`,
       })
 
       // Show the new member card immediately without requiring a page reload.
@@ -906,6 +921,7 @@ function CommitteeManagement() {
                         value={memberName}
                         onChange={(e) => setMemberName(e.target.value)}
                         placeholder="e.g., Dr. John Smith"
+                        maxLength={120}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         required
                       />
@@ -921,6 +937,7 @@ function CommitteeManagement() {
                         value={designation}
                         onChange={(e) => setDesignation(e.target.value)}
                         placeholder="e.g., Vice Chancellor, Dean, Government Representative"
+                        maxLength={120}
                         className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                       />
                     </div>
@@ -954,6 +971,7 @@ function CommitteeManagement() {
                           value={customStatusAsPerAct}
                           onChange={(e) => setCustomStatusAsPerAct(e.target.value)}
                           placeholder="Enter official seat / status"
+                          maxLength={180}
                           className="mt-2 w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-sm"
                         />
                       )}
