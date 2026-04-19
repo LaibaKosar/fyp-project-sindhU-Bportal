@@ -381,8 +381,8 @@ function CampusDetailView() {
               isExpandable={hasReports}
               isExpanded={isProgExpanded}
               onToggle={hasReports ? () => toggleProgram(prog.id) : undefined}
-              status={hasReports ? null : 'Missing report'}
-              statusTone={hasReports ? undefined : 'danger'}
+              status={hasReports ? 'Report submitted' : 'Missing report'}
+              statusTone={hasReports ? 'success' : 'danger'}
             />
           )
 

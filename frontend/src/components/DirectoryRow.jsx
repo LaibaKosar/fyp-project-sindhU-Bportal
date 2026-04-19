@@ -39,6 +39,9 @@ function FocalRoleBadge({ role }) {
 }
 
 function getStatusClasses(tone) {
+  if (tone === 'success') {
+    return 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+  }
   if (tone === 'danger') {
     return 'bg-red-50 text-red-700 border border-red-200'
   }
@@ -63,7 +66,7 @@ export default function DirectoryRow({
   onToggle,
   stemBadge, // { label, tone: 'stem' | 'nonstem' }
   status, // string like 'Missing report'
-  statusTone, // 'danger' | 'muted'
+  statusTone, // 'danger' | 'muted' | 'success' | 'stem' | 'nonstem'
   disabledReason
 }) {
   const indentClass = getIndentClass(level)
