@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { recordSystemLog } from '../utils/systemLogs'
+import { calculateInstitutionalHealth } from '../utils/governanceInsights'
 import { UFP_PAGE_GRADIENT_CLASS } from '../components/UfpAdminShell'
 import { 
   LayoutDashboard, 
@@ -26,7 +28,15 @@ import {
   Gavel,
   LayoutGrid,
   Landmark,
+  AlertTriangle,
+  Info,
 } from 'lucide-react'
+
+const HEALTH_STATUS_THEME = {
+  critical: { color: '#dc2626', label: 'Critical - Action Required' },
+  improving: { color: '#f59e0b', label: 'Improving - Documents Pending' },
+  excellent: { color: '#166534', label: 'Excellent - Audit Ready' },
+}
 
 function UFPDashboard() {
   const navigate = useNavigate()
@@ -46,6 +56,14 @@ function UFPDashboard() {
   const [studentCount, setStudentCount] = useState(0)
   const [campuses, setCampuses] = useState([])
   const [showCampusesDropdown, setShowCampusesDropdown] = useState(false)
+  const [healthData, setHealthData] = useState({
+    score: 0,
+    band: 'critical',
+    missingItems: [],
+    segmentScores: { profile: 0, staffIntegrity: 0, governance: 0, academicDepth: 0 },
+    meta: {},
+  })
+  const [showScoringMethodology, setShowScoringMethodology] = useState(false)
 
   // Determine active section from current route
   const activeSection = location.pathname.includes('/faculties') ? 'faculties' :
@@ -77,6 +95,7 @@ function UFPDashboard() {
       fetchStaffCount()
       fetchProgramCount()
       fetchStudentCount()
+      fetchInstitutionalHealthData()
     }
   }, [user])
 
@@ -283,6 +302,79 @@ function UFPDashboard() {
     }
   }
 
+  const fetchInstitutionalHealthData = async () => {
+    if (!user?.university_id) return
+
+    try {
+      const [universityRes, boardsRes, facultiesRes] = await Promise.all([
+        supabase
+          .from('universities')
+          .select('id, logo_url, website_url, address')
+          .eq('id', user.university_id)
+          .single(),
+        supabase
+          .from('university_boards')
+          .select('id, board_type, term_start, term_end')
+          .eq('university_id', user.university_id)
+          .in('board_type', ['Board of Faculty', 'Board of Studies']),
+        supabase
+          .from('faculties')
+          .select('id, name')
+          .eq('university_id', user.university_id),
+      ])
+
+      const baseStaffQuery = supabase
+        .from('staff')
+        .select('id, full_name, profile_photo_url, appointment_letter_url')
+        .eq('university_id', user.university_id)
+      let staffRows = []
+      const { data: staffWithLetter, error: staffWithLetterError } = await baseStaffQuery
+      if (staffWithLetterError) {
+        const { data: staffPhotoOnly, error: staffPhotoOnlyError } = await supabase
+          .from('staff')
+          .select('id, full_name, profile_photo_url')
+          .eq('university_id', user.university_id)
+        if (staffPhotoOnlyError) throw staffPhotoOnlyError
+        staffRows = staffPhotoOnly || []
+      } else {
+        staffRows = staffWithLetter || []
+      }
+
+      if (universityRes.error) throw universityRes.error
+      if (boardsRes.error) throw boardsRes.error
+      if (facultiesRes.error) throw facultiesRes.error
+
+      const facultyList = facultiesRes.data || []
+      const facultyNameById = facultyList.reduce((acc, faculty) => {
+        acc[faculty.id] = faculty.name
+        return acc
+      }, {})
+
+      let facultySummaryRows = []
+      if (facultyList.length > 0) {
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('faculty_summary')
+          .select('faculty_id, departments_count, programs_count')
+          .in('faculty_id', facultyList.map((faculty) => faculty.id))
+        if (summaryError) throw summaryError
+        facultySummaryRows = (summaryRows || []).map((row) => ({
+          ...row,
+          faculty_name: facultyNameById[row.faculty_id] || null,
+        }))
+      }
+
+      const result = calculateInstitutionalHealth({
+        university: universityRes.data,
+        staff: staffRows,
+        boards: boardsRes.data || [],
+        facultySummary: facultySummaryRows,
+      })
+      setHealthData(result)
+    } catch (error) {
+      console.error('Error fetching institutional health data:', error)
+    }
+  }
+
   const toggleCampusesSection = () => {
     setShowCampusesDropdown(!showCampusesDropdown)
   }
@@ -459,6 +551,67 @@ function UFPDashboard() {
   const campusesListVisible = showCampusesDropdown || activeSection === 'campus-detail'
 
   const campusesNavList = campuses
+  const healthTheme = HEALTH_STATUS_THEME[healthData.band] || HEALTH_STATUS_THEME.critical
+  const gaugeData = [
+    { name: 'score', value: healthData.score },
+    { name: 'remaining', value: 100 - healthData.score },
+  ]
+  const segmentCards = [
+    {
+      key: 'profile',
+      label: 'Profile',
+      weight: 20,
+      score: Math.round(healthData.segmentScores.profile),
+      tooltip: 'Weighted at 20%. Points granted for Logo, Website, and Address completeness.',
+    },
+    {
+      key: 'staffIntegrity',
+      label: 'Staff',
+      weight: 30,
+      score: Math.round(healthData.segmentScores.staffIntegrity),
+      tooltip: 'Weighted at 30%. Points granted based on the ratio of staff with verified photos and appointment letters.',
+    },
+    {
+      key: 'governance',
+      label: 'Governance',
+      weight: 30,
+      score: Math.round(healthData.segmentScores.governance),
+      tooltip: 'Weighted at 30%. Points granted for active Board of Faculty (15pt) and Board of Studies (15pt).',
+    },
+    {
+      key: 'academicDepth',
+      label: 'Academic',
+      weight: 20,
+      score: Math.round(healthData.segmentScores.academicDepth),
+      tooltip: 'Weighted at 20%. Points granted for Faculties that have registered Departments and Programs.',
+    },
+  ]
+  const handleChecklistNavigation = (item) => {
+    const category = (item?.category || '').toLowerCase()
+    const message = (item?.message || '').toLowerCase()
+
+    if (category.includes('staff') || message.includes('staff')) {
+      navigate('/ufp/staff')
+      return
+    }
+
+    if (category.includes('governance') || message.includes('board')) {
+      navigate('/ufp/boards')
+      return
+    }
+
+    if (category.includes('profile') || message.includes('profile') || message.includes('university')) {
+      setShowCustomize(true)
+      return
+    }
+
+    if (category.includes('academic') || message.includes('faculty') || message.includes('department') || message.includes('program')) {
+      navigate('/ufp/faculties')
+      return
+    }
+
+    navigate('/ufp-dashboard')
+  }
 
   if (loading) {
     return (
@@ -732,9 +885,12 @@ function UFPDashboard() {
       <main className="flex-1 min-h-0 overflow-y-auto">
         {/* Top Header */}
         <div className="h-14 sm:h-16 bg-white/85 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 flex items-center justify-between gap-4 px-5 sm:px-8 shadow-sm">
-          <h1 className="min-w-0 truncate text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            {university?.name || 'University Dashboard'}
-          </h1>
+          <div className="min-w-0 flex items-center">
+            <h1 className="min-w-0 truncate text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              {university?.name || 'University Dashboard'}
+            </h1>
+            <span className="ml-4 pl-4 border-l border-slate-200 text-slate-500 text-sm font-medium">Welcome back, {user?.full_name}!</span>
+          </div>
           <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
@@ -890,16 +1046,143 @@ function UFPDashboard() {
               transition={{ duration: 0.5 }}
               className="w-full space-y-5 sm:space-y-6"
             >
-              <section aria-labelledby="ufp-overview-welcome-heading" className="rounded-xl border border-slate-700/40 bg-slate-900/78 px-5 py-4 shadow-lg backdrop-blur-lg sm:rounded-2xl sm:px-6 sm:py-5">
-                <div className="max-w-3xl">
-                  <h2 id="ufp-overview-welcome-heading" className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
-                    Welcome back, {user?.full_name || 'User'}!
-                  </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-white/85 sm:text-base">
-                    Manage your university's academic structure and resources
-                  </p>
+              <motion.section
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: 'easeOut' }}
+                aria-labelledby="ufp-overview-health-heading"
+                className="rounded-2xl border border-emerald-900/40 bg-[#0a0f1a]/90 p-5 shadow-xl backdrop-blur-lg sm:p-6"
+              >
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
+                  <div className="relative mx-auto h-52 w-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={gaugeData}
+                          dataKey="value"
+                          startAngle={90}
+                          endAngle={-270}
+                          innerRadius={72}
+                          outerRadius={94}
+                          stroke="none"
+                          isAnimationActive
+                        >
+                          <Cell fill={healthTheme.color} />
+                          <Cell fill="#1f2937" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-4xl font-bold text-white">{healthData.score}%</span>
+                      <span className="mt-1 text-xs uppercase tracking-wider text-emerald-200">Health Score</span>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <h2 id="ufp-overview-health-heading" className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                        Institutional Health Status
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-300 sm:text-base">
+                        {healthTheme.label}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 sm:text-sm">
+                      {segmentCards.map((segment) => {
+                        const healthy = segment.score >= segment.weight
+                        return (
+                          <div
+                            key={segment.key}
+                            className={`rounded-lg border px-3 py-2 ${
+                              healthy
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                : 'border-red-500/40 bg-red-500/10 text-red-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>{`${segment.label} (${segment.weight}%): ${segment.score}/${segment.weight}`}</span>
+                              <span className="group relative inline-flex">
+                                <Info className="h-3.5 w-3.5 cursor-help" />
+                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-[11px] font-medium leading-relaxed text-slate-100 shadow-lg group-hover:block">
+                                  {segment.tooltip}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[10px] uppercase tracking-wide">
+                              {healthy ? 'Healthy' : 'Deficient'}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <h3 className="text-sm font-semibold text-white sm:text-base">Action Required Checklist</h3>
+                      {healthData.missingItems.length === 0 ? (
+                        <p className="mt-2 text-sm text-emerald-200">All required records are currently complete.</p>
+                      ) : (
+                        <div className="mt-3 max-h-60 overflow-y-auto pr-1">
+                          <ul className="space-y-2">
+                            {healthData.missingItems.map((item, index) => (
+                              <li key={`${item.category}-${item.id || index}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleChecklistNavigation(item)}
+                                  className="group flex w-full items-start justify-between gap-3 rounded-lg px-2 py-2 text-left text-sm text-amber-100 transition-colors hover:bg-white/5"
+                                >
+                                  <span className="flex items-start gap-2">
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+                                    <span className="group-hover:underline">{`⚠️ ${item.message}`}</span>
+                                  </span>
+                                  <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-300 group-hover:text-white">
+                                    Fix Now
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowScoringMethodology(true)}
+                      className="text-xs font-medium text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+                    >
+                      Scoring Methodology
+                    </button>
+                  </div>
                 </div>
-              </section>
+              </motion.section>
+
+              {showScoringMethodology && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40 bg-black/40"
+                    onClick={() => setShowScoringMethodology(false)}
+                    aria-hidden
+                  />
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-semibold text-white">Institutional Health Scoring</h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowScoringMethodology(false)}
+                          className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <ul className="mt-4 space-y-2 text-sm text-slate-200">
+                        <li>Profile: 20% (Logo, Website, Address)</li>
+                        <li>Staff Documentation: 30% (photos and appointment letters)</li>
+                        <li>Governance Compliance: 30% (active Board of Faculty and Board of Studies)</li>
+                        <li>Academic Structure: 20% (faculties with departments and programs)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <section aria-labelledby="ufp-overview-stats-heading">
                 <h3 id="ufp-overview-stats-heading" className="sr-only">
